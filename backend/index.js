@@ -164,9 +164,10 @@ app.post('/register', async (req, res) => {
 // ================= Call-status handler (missed/busy/no voicemail) =================
 app.post('/call-status', async (req, res) => {
   const callStatus = req.body.CallStatus;
-  const recordingUrl = req.body.RecordingUrl; // Twilio includes this if a voicemail was recorded
+  const recordingUrl = req.body.RecordingUrl; // Twilio includes this if voicemail was recorded
   const from = formatPhone(req.body.From || '');
   const tradieNumber = process.env.TRADIE_PHONE_NUMBER;
+
   if (!from) return res.status(400).send('Missing caller number');
 
   const convo = conversations[from];
@@ -178,8 +179,8 @@ app.post('/call-status', async (req, res) => {
   }
 
   try {
-    // Case 1: Never connected (busy / no-answer before voicemail offered)
-    if (['no-answer', 'busy'].includes(callStatus)) {
+    // Case 1: Never connected (busy / no-answer) AND no voicemail recorded
+    if (['no-answer', 'busy'].includes(callStatus) && !recordingUrl) {
       const introMsg = `G’day, this is ${process.env.TRADIE_NAME} from ${process.env.TRADES_BUSINESS}. Sorry I missed your call — can I grab your name and whether you’re after a quote, booking, or something else?`;
       await client.messages.create({ body: introMsg, from: process.env.TWILIO_PHONE, to: from });
 
@@ -191,10 +192,10 @@ app.post('/call-status', async (req, res) => {
         to: tradieNumber
       });
 
-      console.log(`✅ Missed call (no-answer/busy) handled for ${from}`);
+      console.log(`✅ Missed call (no-answer/busy, no voicemail) handled for ${from}`);
     }
 
-    // Case 2: Call ended as completed, but caller left NO voicemail
+    // Case 2: Call ended as completed, but no voicemail recorded
     else if (callStatus === 'completed' && !recordingUrl) {
       const followUpMsg = `Hi, it’s ${process.env.TRADIE_NAME} from ${process.env.TRADES_BUSINESS}. Looks like I missed your call — can I grab your name and what you’re after (quote, booking, or something else)?`;
       await client.messages.create({ body: followUpMsg, from: process.env.TWILIO_PHONE, to: from });
@@ -207,14 +208,17 @@ app.post('/call-status', async (req, res) => {
         to: tradieNumber
       });
 
-      console.log(`✅ Missed call (no voicemail) handled for ${from}`);
+      console.log(`✅ Missed call (completed, no voicemail) handled for ${from}`);
     }
+
+    // If there's a voicemail recording, **do nothing here** — the /voicemail endpoint handles it
   } catch (err) {
     console.error('❌ Error handling call-status:', err.message);
   }
 
   res.status(200).send('Call status processed');
 });
+
 
 // ================= Voice handler =================
 app.post('/voice', (req, res) => {

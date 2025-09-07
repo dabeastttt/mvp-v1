@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>TradeAssist A.I Signup</title>
+  <script src="https://js.stripe.com/v3/"></script>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  min-height: 100%;   /* use min-height so it grows with content */
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background: #0A0A0A;
+  color: #FFFFFF;
+  overflow-x: hidden; /* only hide sideways scroll */
+  overflow-y: auto;   /* allow vertical scroll */
+}
+
+    canvas {
+      position: fixed;
+      top: 0;
+      left: 0;
+      z-index: 0;
+      width: 100%;
+      height: 100%;
+      background: #0A0A0A;
+      display: block;
+    }
+
+main {
+  position: relative;
+  z-index: 10;
+  max-width: 340px;         /* ⬅️ narrower */
+  height: auto;             /* ⬅️ let it grow with content */
+  overflow-y: visible;      /* ⬅️ remove scroll unless needed */
+  overflow-x: hidden;
+  margin: 2rem auto;
+  background: rgba(30, 30, 30, 0.1);
+  border-radius: 16px;
+  box-shadow: 0 0 20px #FF914D88;
+  padding: 1.5rem 1.5rem;    /* ⬅️ tighter padding */
+  backdrop-filter: blur(2.5px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+    .glow-icon {
+      display: block;
+      margin: 0 auto 1.5rem auto;
+      width: 120px;
+      height: 120px;
+      filter: drop-shadow(0 0 12px #FF6B00CC);
+      animation: glowPulse 3s ease-in-out infinite;
+    }
+
+    @keyframes glowPulse {
+      0%, 100% {
+        filter: drop-shadow(0 0 8px #FF6B00AA);
+      }
+      50% {
+        filter: drop-shadow(0 0 16px #FF914DCC);
+      }
+    }
+
+    h1 {
+      font-weight: 900;
+      font-size: 2.6rem;
+      margin: 0 0 0.6rem;
+      text-align: center;
+      color: #FF6B00;
+      text-shadow: 0 0 10px #FF914D88;
+    }
+
+    h2 {
+      font-weight: 400;
+      font-size: 1.15rem;
+      margin: 0 0 2rem;
+      text-align: center;
+      color: #FF914D;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 0.4rem;
+      font-weight: 600;
+      color: #FF914D;
+    }
+
+    input[type="text"],
+    input[type="email"],
+    input[type="tel"],
+    select {
+      width: 100%;
+      padding: 0.75rem 1rem;
+      margin-bottom: 1.5rem;
+      border-radius: 10px;
+      border: 2px solid #FF6B00;
+      font-size: 1rem;
+      color: #FFFFFF;
+      background-color: #1E1E1E;
+      box-shadow: 0 0 8px #FF6B00;
+      transition: background-color 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
+    }
+
+    input:focus,
+    select:focus {
+      background-color: #2a2a2a;
+      outline: none;
+      border-color: #FF6B00;
+      box-shadow: 0 0 10px #FF6B00;
+    }
+
+    button {
+      width: 100%;
+      padding: 0.9rem;
+      font-size: 1.2rem;
+      font-weight: 700;
+      background: rgba(255, 107, 0, 0.8);
+      color: #0A0A0A;
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      box-shadow: 0 6px 18px #FF914D88;
+      transition: background 0.3s ease, color 0.3s ease;
+      margin-top: 1rem;
+    }
+
+    button:hover,
+    button:focus {
+      background: rgba(255, 145, 77, 0.85);
+      color: #FFFFFF;
+      box-shadow: 0 8px 24px #FF914DCC;
+      outline: none;
+    }
+
+    #loadingScreen {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      z-index: 9999;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(10, 10, 10, 0.95);
+      color: #FF6B00;
+      font-size: 2rem;
+      text-align: center;
+      padding-top: 30vh;
+    }
+
+    @media (max-width: 480px) {
+      main {
+        margin: 1.5rem 1rem;
+        padding: 2rem 1.5rem;
+      }
+    }
+  </style>
+</head>
+<body>
+
+<canvas id="backgroundCanvas"></canvas>
+
+<main>
+  <svg class="glow-icon" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <linearGradient id="orangeBolt" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="#FF6B00" />
+        <stop offset="100%" stop-color="#FF914D" />
+      </linearGradient>
+    </defs>
+    <path d="M32 8c-11 0-20 9-20 20v4c0 2.2 1.8 4 4 4h32c2.2 0 4-1.8 4-4v-4c0-11-9-20-20-20z"
+          fill="url(#orangeBolt)" stroke="#FFFFFF" stroke-width="2"/>
+    <path d="M20 36v-4c0-6.6 5.4-12 12-12s12 5.4 12 12v4"
+          fill="none" stroke="#FFFFFF" stroke-width="2"/>
+  </svg>
+
+  <h1>TradeAssist A.I</h1>
+  <h2>NEVER MISS A JOB AGAIN.</h2>
+
+  <form id="signupForm" autocomplete="off" novalidate>
+    <label for="name">Full Name</label>
+    <input type="text" id="name" name="name" placeholder="Name" required />
+
+    <label for="business">Business Name</label>
+    <input type="text" id="business" name="business" placeholder="Business Name" required />
+
+    <label for="email">Email Address</label>
+    <input type="email" id="email" name="email" placeholder="Email@example.com" required />
+
+    <label for="phone">Mobile Number</label>
+    <input type="tel" id="phone" name="phone" placeholder="0400 000 000" pattern="[0-9\s\-+]+" required />
+
+    <label for="planSelect">Select Subscription Plan:</label>
+    <select id="planSelect" name="planSelect" required>
+      <option value="weekly">Weekly - $7 / week</option>
+      <option value="monthly">Monthly - $30 / month</option>
+    </select>
+
+    <button type="submit">ONBOARD YOUR 24/7 Receptionist</button>
+  </form>
+
+  <button id="loginButton" type="button">Login to Dashboard</button>
+</main>
+
+<div id="loadingScreen">Onboarding your AI Receptionist...</div>
+
+<script>
+  const canvas = document.getElementById('backgroundCanvas');
+  const ctx = canvas.getContext('2d');
+  let width, height;
+
+  function resize() {
+    width = window.innerWidth;
+    height = window.innerHeight;
+    canvas.width = width;
+    canvas.height = height;
+  }
+  resize();
+  window.addEventListener('resize', resize);
+
+  class Particle {
+    constructor() {
+      this.x = Math.random() * width;
+      this.y = Math.random() * height;
+      this.radius = 2 + Math.random() * 2;
+      this.vx = (Math.random() - 0.5) * 0.8;
+      this.vy = (Math.random() - 0.5) * 0.8;
+      this.alpha = 0.6 + Math.random() * 0.4;
+    }
+    move() {
+      this.x += this.vx;
+      this.y += this.vy;
+      if(this.x < 0 || this.x > width) this.vx *= -1;
+      if(this.y < 0 || this.y > height) this.vy *= -1;
+    }
+    draw() {
+      ctx.beginPath();
+      ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(255, 107, 0, ${this.alpha})`;
+      ctx.shadowColor = 'rgba(255, 107, 0, 0.7)';
+      ctx.shadowBlur = 8;
+      ctx.fill();
+      ctx.shadowBlur = 0;
+    }
+  }
+
+  const particles = Array.from({ length: 120 }, () => new Particle());
+
+  function connectParticles() {
+    for (let i = 0; i < particles.length; i++) {
+      for (let j = i + 1; j < particles.length; j++) {
+        const dx = particles[i].x - particles[j].x;
+        const dy = particles[i].y - particles[j].y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < 120) {
+          ctx.beginPath();
+          ctx.strokeStyle = `rgba(255, 107, 0, ${1 - dist / 120})`;
+          ctx.lineWidth = 1;
+          ctx.shadowColor = 'rgba(255, 107, 0, 0.5)';
+          ctx.shadowBlur = 6;
+          ctx.moveTo(particles[i].x, particles[i].y);
+          ctx.lineTo(particles[j].x, particles[j].y);
+          ctx.stroke();
+          ctx.shadowBlur = 0;
+        }
+      }
+    }
+  }
+
+  function animate() {
+    ctx.clearRect(0, 0, width, height);
+    particles.forEach(p => {
+      p.move();
+      p.draw();
+    });
+    connectParticles();
+    requestAnimationFrame(animate);
+  }
+
+  animate();
+</script>
+
+<script>
+  const form = document.getElementById('signupForm');
+  const loadingScreen = document.getElementById('loadingScreen');
+  const button = form.querySelector('button');
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (!form.checkValidity()) {
+      form.reportValidity();
+      return;
+    }
+
+    loadingScreen.style.display = 'block';
+    button.disabled = true;
+
+    const formData = {
+      name: document.getElementById('name').value.trim(),
+      business: document.getElementById('business').value.trim(),
+      email: document.getElementById('email').value.trim(),
+      phoneRaw: document.getElementById('phone').value.trim(),
+      planSelect: document.getElementById('planSelect').value
+    };
+
+    try {
+      const res = await fetch('/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData)
+      });
+
+      if (res.ok) {
+        window.location.href = '/success';
+      } else {
+        throw new Error('Registration failed');
+      }
+    } catch (err) {
+      alert("Registration error. Please try again.");
+      loadingScreen.style.display = 'none';
+      button.disabled = false;
+    }
+  });
+
+  document.getElementById('loginButton').addEventListener('click', () => {
+    window.location.href = 'https://volt-flow.onrender.com/dashboard';
+  });
+</script>
+
+</body>
+</html>
+

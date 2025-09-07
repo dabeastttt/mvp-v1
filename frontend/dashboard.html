@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TradeAssist A.I — Dashboard</title>
+<style>
+  html, body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: #0A0A0A;
+    color: #FFFFFF;
+    overflow: hidden;
+  }
+
+  canvas {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 0;
+    background: #0A0A0A;
+    display: block;
+  }
+
+  main {
+    position: relative;
+    z-index: 10;
+    width: 95%;
+    max-width: 1000px;
+    margin: 2rem auto;
+    background: rgba(30,30,30,0.25);
+    backdrop-filter: blur(2.5px);
+    border-radius: 16px;
+    box-shadow: 0 0 20px #FF914D99;
+    padding: 2rem;
+    box-sizing: border-box;
+    max-height: 90vh;
+    overflow-y: auto;
+  }
+
+.glow-icon {
+  width: 80px;  /* smaller width */
+  height: 80px; /* smaller height */
+  margin: 0 auto 1rem auto; /* center horizontally and add margin below */
+  display: block;
+  filter: drop-shadow(0 0 12px #FF6B00);
+}
+
+  h1 {
+    text-align: center;
+    font-size: 2rem;
+    margin-bottom: 1.5rem;
+    color: #FF6B00;
+    text-shadow: 0 0 10px #FF914Dbb;
+  }
+
+  .dashboard-grid {
+    display: grid;
+    grid-template-columns: 1fr 2fr;
+    gap: 1.5rem;
+  }
+
+  .panel {
+    background: rgba(30,30,30,0.5);
+    border-radius: 12px;
+    padding: 1rem;
+    box-shadow: 0 0 12px #FF6B0099;
+  }
+
+  .panel h2 {
+    margin-top: 0;
+    color: #FF914D;
+    font-size: 1.25rem;
+  }
+
+  .messages, .bookings {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    max-height: 60vh;
+    overflow-y: auto;
+  }
+
+  .messages li, .bookings li {
+    padding: 0.75rem;
+    margin-bottom: 0.5rem;
+    background: rgba(0,0,0,0.4);
+    border-left: 4px solid #FF6B00;
+    border-radius: 8px;
+    box-shadow: 0 2px 6px rgba(255,107,0,0.3);
+  }
+
+  .messages li span.time {
+    float: right;
+    font-size: 0.8rem;
+    color: #FF914D;
+  }
+
+  .bookings li span.slot {
+    float: right;
+    font-weight: bold;
+    color: #FF914D;
+  }
+
+h2.dashboard-subtitle {
+  text-align: center;
+  font-size: 1.2rem; /* optional: make it slightly smaller than h1 */
+  color: #FF914D;
+  margin-top: 0.25rem;
+  margin-bottom: 2rem;
+  font-weight: 600;
+  text-shadow: 0 0 8px #FF914Dbb;
+}
+
+  button {
+    margin-top: 1rem;
+    width: 100%;
+    padding: 0.75rem;
+    background: #FF6B00;
+    color: #0A0A0A;
+    border: none;
+    border-radius: 12px;
+    cursor: pointer;
+    font-weight: 700;
+    box-shadow: 0 6px 16px #FF6B0088;
+    transition: background 0.3s ease, box-shadow 0.3s ease;
+  }
+
+  button:hover {
+    background: #FF914D;
+    box-shadow: 0 8px 20px #FF6B0099;
+    color: #FFFFFF;
+  }
+
+</style>
+</head>
+<body>
+
+<canvas id="backgroundCanvas"></canvas>
+
+<main>
+  <svg class="glow-icon" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <linearGradient id="orangeBolt" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="#FF6B00" />
+        <stop offset="100%" stop-color="#FF914D" />
+      </linearGradient>
+    </defs>
+    <path d="M32 8c-11 0-20 9-20 20v4c0 2.2 1.8 4 4 4h32c2.2 0 4-1.8 4-4v-4c0-11-9-20-20-20z"
+          fill="url(#orangeBolt)" stroke="#FFFFFF" stroke-width="2"/>
+    <path d="M20 36v-4c0-6.6 5.4-12 12-12s12 5.4 12 12v4"
+          fill="none" stroke="#FFFFFF" stroke-width="2"/>
+  </svg>
+
+<h1>TradeAssist AI V.1</h1>
+<h2 class="dashboard-subtitle">NEVER MISS A JOB AGAIN.</h2>
+  <div class="dashboard-grid">
+    <div class="panel">
+      <h2>Messages</h2>
+      <ul class="messages">
+        <li>John Doe: Quote request <span class="time">12:34</span></li>
+        <li>Jane Smith: Plumbing issue <span class="time">12:42</span></li>
+        <li>Bob Lee: Booking confirmation <span class="time">12:55</span></li>
+      </ul>
+      <button>Refresh Messages</button>
+    </div>
+
+    <div class="panel">
+      <h2>Booking Slots Via Missed Calls</h2>
+      <ul class="bookings">
+        <li>John Doe <span class="slot">1:30 PM</span></li>
+        <li>Jane Smith <span class="slot">2:00 PM</span></li>
+        <li>Bob Lee <span class="slot">2:45 PM</span></li>
+      </ul>
+      <button>Schedule New Booking</button>
+    </div>
+  </div>
+</main>
+
+<script>
+  const canvas = document.getElementById('backgroundCanvas');
+  const ctx = canvas.getContext('2d');
+  let width, height;
+
+  function resize() {
+    width = window.innerWidth;
+    height = window.innerHeight;
+    canvas.width = width;
+    canvas.height = height;
+  }
+  resize();
+  window.addEventListener('resize', resize);
+
+  class Particle {
+    constructor() {
+      this.x = Math.random() * width;
+      this.y = Math.random() * height;
+      this.radius = 2 + Math.random() * 2;
+      this.vx = (Math.random() - 0.5) * 0.8;
+      this.vy = (Math.random() - 0.5) * 0.8;
+      this.alpha = 0.6 + Math.random() * 0.4;
+    }
+    move() {
+      this.x += this.vx;
+      this.y += this.vy;
+      if(this.x < 0 || this.x > width) this.vx *= -1;
+      if(this.y < 0 || this.y > height) this.vy *= -1;
+    }
+    draw() {
+      ctx.beginPath();
+      ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(255,107,0,${this.alpha})`;
+      ctx.shadowColor = 'rgba(255,107,0,0.7)';
+      ctx.shadowBlur = 8;
+      ctx.fill();
+      ctx.shadowBlur = 0;
+    }
+  }
+
+  const particles = Array.from({length: 120}, () => new Particle());
+
+  function connectParticles() {
+    for (let i=0;i<particles.length;i++){
+      for(let j=i+1;j<particles.length;j++){
+        const dx = particles[i].x-particles[j].x;
+        const dy = particles[i].y-particles[j].y;
+        const dist = Math.sqrt(dx*dx + dy*dy);
+        if(dist<120){
+          ctx.beginPath();
+          ctx.strokeStyle = `rgba(255,107,0,${1-dist/120})`;
+          ctx.lineWidth = 1;
+          ctx.shadowColor='rgba(255,107,0,0.5)';
+          ctx.shadowBlur=6;
+          ctx.moveTo(particles[i].x, particles[i].y);
+          ctx.lineTo(particles[j].x, particles[j].y);
+          ctx.stroke();
+          ctx.shadowBlur=0;
+        }
+      }
+    }
+  }
+
+  function animate() {
+    ctx.clearRect(0,0,width,height);
+    particles.forEach(p=>{p.move(); p.draw();});
+    connectParticles();
+    requestAnimationFrame(animate);
+  }
+  animate();
+</script>
+
+</body>
+</html>

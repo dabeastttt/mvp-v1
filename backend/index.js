@@ -33,6 +33,20 @@ app.get('/dashboard', (req, res) => res.sendFile(path.join(__dirname, 'public/da
 app.get('/login', (req, res) => res.sendFile(path.join(__dirname, 'public/login.html')));
 app.get('/success', (req, res) => res.sendFile(path.join(__dirname, 'public/success.html')));
 
+// Login form POST
+app.post('/dashboard/view', (req, res) => {
+  const { email, password } = req.body;
+  const user = users.find(u => u.email === email && u.password === password);
+
+  if (user) {
+    // Login successful → redirect to dashboard
+    return res.redirect('/dashboard');
+  } else {
+    // Login failed → back to login
+    return res.send('Invalid credentials. <a href="/login">Try again</a>');
+  }
+});
+
 
 // Logger
 app.use((req, res, next) => {

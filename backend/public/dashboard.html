@@ -42,13 +42,13 @@
     overflow-y: auto;
   }
 
-.glow-icon {
-  width: 80px;  /* smaller width */
-  height: 80px; /* smaller height */
-  margin: 0 auto 1rem auto; /* center horizontally and add margin below */
-  display: block;
-  filter: drop-shadow(0 0 12px #FF6B00);
-}
+  .glow-icon {
+    width: 80px;
+    height: 80px;
+    margin: 0 auto 1rem auto;
+    display: block;
+    filter: drop-shadow(0 0 12px #FF6B00);
+  }
 
   h1 {
     text-align: center;
@@ -92,29 +92,26 @@
     border-left: 4px solid #FF6B00;
     border-radius: 8px;
     box-shadow: 0 2px 6px rgba(255,107,0,0.3);
-  }
-
-  .messages li span.time {
-    float: right;
-    font-size: 0.8rem;
+    font-style: italic;
     color: #FF914D;
   }
 
+  .messages li span.time,
   .bookings li span.slot {
     float: right;
     font-weight: bold;
     color: #FF914D;
   }
 
-h2.dashboard-subtitle {
-  text-align: center;
-  font-size: 1.2rem; /* optional: make it slightly smaller than h1 */
-  color: #FF914D;
-  margin-top: 0.25rem;
-  margin-bottom: 2rem;
-  font-weight: 600;
-  text-shadow: 0 0 8px #FF914Dbb;
-}
+  h2.dashboard-subtitle {
+    text-align: center;
+    font-size: 1.2rem;
+    color: #FF914D;
+    margin-top: 0.25rem;
+    margin-bottom: 2rem;
+    font-weight: 600;
+    text-shadow: 0 0 8px #FF914Dbb;
+  }
 
   button {
     margin-top: 1rem;
@@ -135,7 +132,6 @@ h2.dashboard-subtitle {
     box-shadow: 0 8px 20px #FF6B0099;
     color: #FFFFFF;
   }
-
 </style>
 </head>
 <body>
@@ -158,27 +154,23 @@ h2.dashboard-subtitle {
 
 <h1>TradeAssist AI V.1</h1>
 <h2 class="dashboard-subtitle">NEVER MISS A JOB AGAIN.</h2>
-  <div class="dashboard-grid">
-    <div class="panel">
-      <h2>Messages</h2>
-      <ul class="messages">
-        <li>John Doe: Quote request <span class="time">12:34</span></li>
-        <li>Jane Smith: Plumbing issue <span class="time">12:42</span></li>
-        <li>Bob Lee: Booking confirmation <span class="time">12:55</span></li>
-      </ul>
-      <button>Refresh Messages</button>
-    </div>
-
-    <div class="panel">
-      <h2>Booking Slots Via Missed Calls</h2>
-      <ul class="bookings">
-        <li>John Doe <span class="slot">1:30 PM</span></li>
-        <li>Jane Smith <span class="slot">2:00 PM</span></li>
-        <li>Bob Lee <span class="slot">2:45 PM</span></li>
-      </ul>
-      <button>Schedule New Booking</button>
-    </div>
+<div class="dashboard-grid">
+  <div class="panel">
+    <h2>Messages</h2>
+    <ul class="messages" id="messages">
+      <li>Loading messages...</li>
+    </ul>
+    <button onclick="refreshMessages()">Refresh Messages</button>
   </div>
+
+  <div class="panel">
+    <h2>Booking Slots Via Missed Calls</h2>
+    <ul class="bookings" id="bookings">
+      <li>Loading bookings...</li>
+    </ul>
+    <button onclick="scheduleNewBooking()">Schedule New Booking</button>
+  </div>
+</div>
 </main>
 
 <script>
@@ -251,7 +243,39 @@ h2.dashboard-subtitle {
     requestAnimationFrame(animate);
   }
   animate();
+
+  // Placeholder functions for future Supabase integration
+  function refreshMessages() {
+    const messagesEl = document.getElementById('messages');
+    messagesEl.innerHTML = '<li>Refreshing messages...</li>';
+    setTimeout(() => {
+      messagesEl.innerHTML = '<li>No new messages.</li>';
+    }, 1000);
+  }
+
+  function scheduleNewBooking() {
+    const bookingsEl = document.getElementById('bookings');
+    bookingsEl.innerHTML = '<li>Adding new booking...</li>';
+    setTimeout(() => {
+      bookingsEl.innerHTML = '<li>No bookings yet.</li>';
+    }, 1000);
+  }
+
+  // Initial load
+  function loadMessages() {
+    const messagesEl = document.getElementById('messages');
+    messagesEl.innerHTML = '<li>Loading messages...</li>';
+  }
+
+  function loadBookings() {
+    const bookingsEl = document.getElementById('bookings');
+    bookingsEl.innerHTML = '<li>Loading bookings...</li>';
+  }
+
+  loadMessages();
+  loadBookings();
 </script>
 
 </body>
 </html>
+

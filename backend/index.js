@@ -24,7 +24,17 @@ const port = process.env.PORT || 3001;
 app.set('trust proxy', 1);
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: false }));
-app.use(express.static('public'));
+
+
+// Serve static files (CSS, JS, images, etc.)
+app.use(express.static(path.join(__dirname, '../public')));
+
+// Serve individual HTML pages
+app.get('/', (req, res) => res.sendFile(path.join(__dirname, '../public/index.html')));
+app.get('/dashboard', (req, res) => res.sendFile(path.join(__dirname, '../public/dashboard.html')));
+app.get('/login', (req, res) => res.sendFile(path.join(__dirname, '../public/login.html')));
+app.get('/success', (req, res) => res.sendFile(path.join(__dirname, '../public/success.html')));
+
 
 // Logger
 app.use((req, res, next) => {

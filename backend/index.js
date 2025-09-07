@@ -26,14 +26,12 @@ app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: false }));
 
 
-// Serve static files (CSS, JS, images, etc.)
-app.use(express.static(path.join(__dirname, '../public')));
+app.use(express.static(path.join(__dirname, 'public')));
 
-// Serve individual HTML pages
-app.get('/', (req, res) => res.sendFile(path.join(__dirname, '../public/index.html')));
-app.get('/dashboard', (req, res) => res.sendFile(path.join(__dirname, '../public/dashboard.html')));
-app.get('/login', (req, res) => res.sendFile(path.join(__dirname, '../public/login.html')));
-app.get('/success', (req, res) => res.sendFile(path.join(__dirname, '../public/success.html')));
+app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public/index.html')));
+app.get('/dashboard', (req, res) => res.sendFile(path.join(__dirname, 'public/dashboard.html')));
+app.get('/login', (req, res) => res.sendFile(path.join(__dirname, 'public/login.html')));
+app.get('/success', (req, res) => res.sendFile(path.join(__dirname, 'public/success.html')));
 
 
 // Logger

@@ -1,4 +1,5 @@
-app.get('/dashboard', (req, res) => {
+// Login page route
+app.get('/login', (req, res) => {
   const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -16,7 +17,6 @@ app.get('/dashboard', (req, res) => {
       color: #FFFFFF;
       overflow: hidden;
     }
-
     canvas {
       position: fixed;
       top: 0; left: 0;
@@ -26,14 +26,13 @@ app.get('/dashboard', (req, res) => {
       background: #0A0A0A;
       display: block;
     }
-
     main {
       position: relative;
       z-index: 10;
       width: 90%;
       max-width: 400px;
       margin: 4rem auto;
-      background: rgba(30, 30, 30, 0.25); /* transparent dark background */
+      background: rgba(30, 30, 30, 0.25);
       backdrop-filter: blur(2.5px);
       border-radius: 16px;
       box-shadow: 0 0 20px #FF914D99;
@@ -43,72 +42,31 @@ app.get('/dashboard', (req, res) => {
       max-height: 85vh;
       text-align: center;
     }
-
-    .glow-icon {
-      width: 120px;
-      height: 120px;
-      margin-bottom: 1rem;
-      filter: drop-shadow(0 0 12px #FF6B00);
-    }
-
-    h1 {
-      margin-bottom: 1.5rem;
-      text-shadow: 0 0 10px #FF914Dbb;
-      color: #FF6B00;
-      font-weight: 900;
-      font-size: 2rem;
-    }
-
-    input[type="email"],
-    input[type="password"] {
-      padding: 0.75rem 1rem;
-      border-radius: 10px;
-      border: 2px solid #FF6B00;
-      width: 100%;
-      margin-bottom: 1.5rem;
-      font-size: 1rem;
-      box-sizing: border-box;
-      background-color: #1E1E1E;
-      color: #FFFFFF;
+    .glow-icon { width: 120px; height: 120px; margin-bottom: 1rem; filter: drop-shadow(0 0 12px #FF6B00); }
+    h1 { margin-bottom: 1.5rem; text-shadow: 0 0 10px #FF914Dbb; color: #FF6B00; font-weight: 900; font-size: 2rem; }
+    input[type="email"], input[type="password"] {
+      padding: 0.75rem 1rem; border-radius: 10px; border: 2px solid #FF6B00;
+      width: 100%; margin-bottom: 1.5rem; font-size: 1rem; box-sizing: border-box;
+      background-color: #1E1E1E; color: #FFFFFF;
       box-shadow: 0 0 8px 3px #FF6B00;
       transition: border-color 0.3s ease, box-shadow 0.3s ease, background-color 0.3s ease;
     }
-
-    input[type="email"]:focus,
-    input[type="password"]:focus {
-      outline: none;
-      border-color: #FF914D;
-      box-shadow: 0 0 12px 4px #FF914D;
-      background-color: #2a2a2a;
+    input[type="email"]:focus, input[type="password"]:focus {
+      outline: none; border-color: #FF914D; box-shadow: 0 0 12px 4px #FF914D; background-color: #2a2a2a;
     }
-
     button {
-      width: 100%;
-      padding: 0.9rem;
-      font-size: 1.2rem;
-      font-weight: 700;
-      background: #FF6B00;
-      color: #0A0A0A;
-      border: none;
-      border-radius: 12px;
-      cursor: pointer;
-      box-shadow: 0 6px 16px #FF6B0088;
+      width: 100%; padding: 0.9rem; font-size: 1.2rem; font-weight: 700;
+      background: #FF6B00; color: #0A0A0A; border: none; border-radius: 12px;
+      cursor: pointer; box-shadow: 0 6px 16px #FF6B0088; margin-top: 1rem;
       transition: background 0.3s ease, color 0.3s ease, box-shadow 0.3s ease;
-      margin-top: 1rem;
     }
-
-    button:hover,
-    button:focus {
-      background: #FF914D;
-      color: #FFFFFF;
-      box-shadow: 0 8px 20px #FF6B0099;
-      outline: none;
+    button:hover, button:focus {
+      background: #FF914D; color: #FFFFFF; box-shadow: 0 8px 20px #FF6B0099; outline: none;
     }
   </style>
 </head>
 <body>
  <canvas id="backgroundCanvas"></canvas>
-
 <main>
   <svg class="glow-icon" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
     <defs>
@@ -122,92 +80,35 @@ app.get('/dashboard', (req, res) => {
     <path d="M20 36v-4c0-6.6 5.4-12 12-12s12 5.4 12 12v4"
           fill="none" stroke="#FFFFFF" stroke-width="2"/>
   </svg>
-
   <h1>Login to Dashboard</h1>
-
-  <form action="/dashboard" method="POST" autocomplete="off">
+  <form action="/dashboard/view" method="POST" autocomplete="off">
     <input type="email" name="email" placeholder="Email Address" required />
     <input type="password" name="password" placeholder="Password" required />
     <button type="submit">Login</button>
   </form>
 </main>
-
 <script>
   const canvas = document.getElementById('backgroundCanvas');
   const ctx = canvas.getContext('2d');
   let width, height;
-
-  function resize() {
-    width = window.innerWidth;
-    height = window.innerHeight;
-    canvas.width = width;
-    canvas.height = height;
-  }
-  resize();
-  window.addEventListener('resize', resize);
+  function resize() { width = window.innerWidth; height = window.innerHeight; canvas.width = width; canvas.height = height; }
+  resize(); window.addEventListener('resize', resize);
 
   class Particle {
-    constructor() {
-      this.x = Math.random() * width;
-      this.y = Math.random() * height;
-      this.radius = 2 + Math.random() * 2;
-      this.vx = (Math.random() - 0.5) * 0.8;
-      this.vy = (Math.random() - 0.5) * 0.8;
-      this.alpha = 0.6 + Math.random() * 0.4;
-    }
-    move() {
-      this.x += this.vx;
-      this.y += this.vy;
-      if(this.x < 0 || this.x > width) this.vx *= -1;
-      if(this.y < 0 || this.y > height) this.vy *= -1;
-    }
-    draw() {
-      ctx.beginPath();
-      ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-      ctx.fillStyle = `rgba(255, 107, 0, ${this.alpha})`;
-      ctx.shadowColor = 'rgba(255, 107, 0, 0.7)';
-      ctx.shadowBlur = 8;
-      ctx.fill();
-      ctx.shadowBlur = 0;
-    }
+    constructor() { this.x = Math.random() * width; this.y = Math.random() * height; this.radius = 2 + Math.random() * 2; this.vx = (Math.random() - 0.5) * 0.8; this.vy = (Math.random() - 0.5) * 0.8; this.alpha = 0.6 + Math.random() * 0.4; }
+    move() { this.x += this.vx; this.y += this.vy; if(this.x < 0 || this.x > width) this.vx*=-1; if(this.y<0||this.y>height)this.vy*=-1; }
+    draw() { ctx.beginPath(); ctx.arc(this.x,this.y,this.radius,0,Math.PI*2); ctx.fillStyle = `rgba(255,107,0,${this.alpha})`; ctx.shadowColor='rgba(255,107,0,0.7)'; ctx.shadowBlur=8; ctx.fill(); ctx.shadowBlur=0; }
   }
-
-  const particles = Array.from({ length: 120 }, () => new Particle());
-
+  const particles = Array.from({length:120},()=>new Particle());
   function connectParticles() {
-    for (let i = 0; i < particles.length; i++) {
-      for (let j = i + 1; j < particles.length; j++) {
-        const dx = particles[i].x - particles[j].x;
-        const dy = particles[i].y - particles[j].y;
-        const dist = Math.sqrt(dx*dx + dy*dy);
-        if (dist < 120) {
-          ctx.beginPath();
-          ctx.strokeStyle = `rgba(255, 107, 0, ${1 - dist/120})`;
-          ctx.lineWidth = 1;
-          ctx.shadowColor = 'rgba(255, 107, 0, 0.5)';
-          ctx.shadowBlur = 6;
-          ctx.moveTo(particles[i].x, particles[i].y);
-          ctx.lineTo(particles[j].x, particles[j].y);
-          ctx.stroke();
-          ctx.shadowBlur = 0;
-        }
-      }
-    }
-  }
-
-  function animate() {
-    ctx.clearRect(0, 0, width, height);
-    particles.forEach(p => {
-      p.move();
-      p.draw();
-    });
-    connectParticles();
-    requestAnimationFrame(animate);
-  }
-
+    for(let i=0;i<particles.length;i++){for(let j=i+1;j<particles.length;j++){
+      const dx=particles[i].x-particles[j].x,dy=particles[i].y-particles[j].y,dist=Math.sqrt(dx*dx+dy*dy);
+      if(dist<120){ctx.beginPath();ctx.strokeStyle=`rgba(255,107,0,${1-dist/120})`;ctx.lineWidth=1;ctx.shadowColor='rgba(255,107,0,0.5)';ctx.shadowBlur=6;ctx.moveTo(particles[i].x,particles[i].y);ctx.lineTo(particles[j].x,particles[j].y);ctx.stroke();ctx.shadowBlur=0;}}}}
+  function animate(){ctx.clearRect(0,0,width,height);particles.forEach(p=>{p.move();p.draw();});connectParticles();requestAnimationFrame(animate);}
   animate();
 </script>
 </body>
 </html>`;
   res.send(html);
 });
+

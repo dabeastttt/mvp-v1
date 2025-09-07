@@ -25,24 +25,31 @@ app.set('trust proxy', 1);
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: false }));
 
-
+// Serve static assets from public folder
 app.use(express.static(path.join(__dirname, 'public')));
 
+// ================= Pages =================
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public/index.html')));
-app.get('/dashboard', (req, res) => res.sendFile(path.join(__dirname, 'public/dashboard.html')));
 app.get('/login', (req, res) => res.sendFile(path.join(__dirname, 'public/login.html')));
+app.get('/dashboard', (req, res) => res.sendFile(path.join(__dirname, 'public/dashboard.html')));
 app.get('/success', (req, res) => res.sendFile(path.join(__dirname, 'public/success.html')));
 
-// Login form POST
-app.post('/dashboard', (req, res) => {
+// ================= Users =================
+const users = [
+  { email: 'admin@example.com', password: 'password123' } // sample user
+];
+
+// ================= Login form POST =================
+app.post('/dashboard/view', (req, res) => {
   const { email, password } = req.body;
+
   const user = users.find(u => u.email === email && u.password === password);
 
   if (user) {
     // Login successful → redirect to dashboard
     return res.redirect('/dashboard');
   } else {
-    // Login failed → back to login
+    // Login failed → back to login page
     return res.send('Invalid credentials. <a href="/login">Try again</a>');
   }
 });

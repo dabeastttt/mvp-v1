@@ -211,14 +211,13 @@ app.post('/call-status', async (req, res) => {
       console.log(`✅ Missed call (completed, no voicemail) handled for ${from}`);
     }
 
-    // If there's a voicemail recording, **do nothing here** — the /voicemail endpoint handles it
+    // If there's a voicemail recording, /voicemail endpoint handles it
   } catch (err) {
     console.error('❌ Error handling call-status:', err.message);
   }
 
   res.status(200).send('Call status processed');
 });
-
 
 // ================= Voice handler =================
 app.post('/voice', (req, res) => {

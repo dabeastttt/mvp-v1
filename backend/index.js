@@ -34,7 +34,7 @@ app.get('/login', (req, res) => res.sendFile(path.join(__dirname, 'public/login.
 app.get('/success', (req, res) => res.sendFile(path.join(__dirname, 'public/success.html')));
 
 // Login form POST
-app.post('/dashboard/view', (req, res) => {
+app.post('/dashboard', (req, res) => {
   const { email, password } = req.body;
   const user = users.find(u => u.email === email && u.password === password);
 

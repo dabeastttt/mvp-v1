@@ -8,6 +8,14 @@ const rateLimit = require('express-rate-limit');
 const fs = require('fs');
 const os = require('os');
 
+
+// Supabase client
+const { createClient } = require('@supabase/supabase-js');
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY // not anon key!
+);
+
 // CommonJS-safe fetch
 const fetch = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args));
 
@@ -39,18 +47,26 @@ const users = [
   { email: 'admin@example.com', password: 'password123' } // sample user
 ];
 
-// ================= Login form POST =================
-app.post('/dashboard/view', (req, res) => {
+// Login with Supabase
+app.post('/dashboard/view', async (req, res) => {
   const { email, password } = req.body;
 
-  const user = users.find(u => u.email === email && u.password === password);
+  try {
+    const { data: user, error } = await supabase
+      .from('users')
+      .select('*')
+      .eq('email', email)
+      .eq('password', password) // ⚠️ for MVP only (hash later!)
+      .single();
 
-  if (user) {
-    // Login successful → redirect to dashboard
+    if (error || !user) {
+      return res.send('Invalid credentials. <a href="/login">Try again</a>');
+    }
+
     return res.redirect('/dashboard');
-  } else {
-    // Login failed → back to login page
-    return res.send('Invalid credentials. <a href="/login">Try again</a>');
+  } catch (err) {
+    console.error('❌ Login failed:', err.message);
+    res.status(500).send('Login error');
   }
 });
 
@@ -151,7 +167,7 @@ app.post('/send-sms', smsLimiter, async (req, res) => {
   }
 });
 
-// Add to index.js
+// Register new user
 app.post('/register', async (req, res) => {
   const { name, business, email, phoneRaw, planSelect } = req.body;
 
@@ -165,17 +181,14 @@ app.post('/register', async (req, res) => {
   }
 
   try {
-    // 1. Store new user in JSON (MVP storage)
-    const user = { name, business, email, phone, planSelect, created: new Date().toISOString() };
-    const dbPath = path.join(__dirname, 'users.json');
-    let users = [];
-    if (fs.existsSync(dbPath)) {
-      users = JSON.parse(fs.readFileSync(dbPath));
-    }
-    users.push(user);
-    fs.writeFileSync(dbPath, JSON.stringify(users, null, 2));
+    // Save to Supabase
+    const { data, error } = await supabase
+      .from('users')
+      .insert([{ name, business, email, phone, plan: planSelect }]);
 
-    // 2. Trigger onboarding SMS
+    if (error) throw error;
+
+    // Onboarding SMS
     await client.messages.create({
       body: `⚡️Hi ${name}, welcome to TradeAssist A.I!`,
       from: process.env.TWILIO_PHONE,
@@ -183,12 +196,13 @@ app.post('/register', async (req, res) => {
     });
 
     console.log(`✅ Registered ${name} (${phone})`);
-    res.status(200).json({ success: true });
+    res.status(200).json({ success: true, user: data[0] });
   } catch (err) {
     console.error('❌ Register failed:', err.message);
     res.status(500).json({ error: 'Registration failed' });
   }
 });
+
 
 // ================= Call-status handler (missed/busy/no voicemail) =================
 app.post('/call-status', async (req, res) => {
@@ -221,6 +235,14 @@ app.post('/call-status', async (req, res) => {
         to: tradieNumber
       });
 
+      // Insert missed call into Supabase messages
+      await supabase.from('messages').insert([{
+        from_number: from,
+        type: 'missed_call',
+        content: '[No message left]',
+        created_at: new Date().toISOString()
+      }]);
+
       console.log(`✅ Missed call (no-answer/busy) handled for ${from}`);
     }
 
@@ -236,6 +258,14 @@ app.post('/call-status', async (req, res) => {
         from: process.env.TWILIO_PHONE,
         to: tradieNumber
       });
+
+      // Insert into Supabase messages
+      await supabase.from('messages').insert([{
+        from_number: from,
+        type: 'missed_call_no_voicemail',
+        content: '[No voicemail]',
+        created_at: new Date().toISOString()
+      }]);
 
       console.log(`✅ Missed call (no voicemail) handled for ${from}`);
     }
@@ -304,15 +334,26 @@ app.post('/voicemail', async (req, res) => {
     console.error('❌ Transcription failed:', err.message);
   }
 
+  // Store conversation state
   conversations[from] = { step: 'awaiting_details', transcription, type: 'voicemail' };
 
   try {
+    // Notify tradie via SMS
     await client.messages.create({
       body: `🎙️ Voicemail from ${from}: "${transcription}"`,
       from: process.env.TWILIO_PHONE,
       to: tradieNumber
     });
 
+    // Insert voicemail into Supabase "messages" table
+    await supabase.from('messages').insert([{
+      from_number: from,
+      type: 'voicemail',
+      transcription,
+      created_at: new Date().toISOString()
+    }]);
+
+    // Generate AI follow-up SMS
     const gptResp = await openai.chat.completions.create({
       model: 'gpt-3.5-turbo',
       messages: [
@@ -360,6 +401,7 @@ app.post('/sms', async (req, res) => {
       detailsText = `${detailsText} (Voicemail: ${convo.transcription})`;
     }
 
+    // Notify tradie via SMS
     await client.messages.create({
       body: `📩 ${convo.type === 'voicemail' ? 'Voicemail received' : 'Missed call from'} ${from}
 Name: ${info.name}
@@ -369,6 +411,17 @@ Waiting for call time...`,
       from: process.env.TWILIO_PHONE,
       to: tradieNumber
     });
+
+    // Insert into Supabase "messages"
+    await supabase.from('messages').insert([{
+      from_number: from,
+      type: convo.type,
+      content: body,
+      customer_name: info.name,
+      intent: info.intent,
+      details: detailsText,
+      created_at: new Date().toISOString()
+    }]);
 
     reply = `Thanks ${info.name}! What time works for a call between 1-3 pm?`;
     convo.step = 'scheduling';
@@ -393,6 +446,7 @@ Waiting for call time...`,
     if (proposedTime) {
       reply = `Thanks! Everything is confirmed. We will see you at ${proposedTime}.`;
 
+      // Notify tradie
       await client.messages.create({
         body: `✅ Booking confirmed for ${from}
 Name: ${convo.customer_info.name}
@@ -402,6 +456,15 @@ Call at ${proposedTime}`,
         from: process.env.TWILIO_PHONE,
         to: tradieNumber
       });
+
+      // Insert booking into Supabase "bookings" table
+      await supabase.from('bookings').insert([{
+        customer_name: convo.customer_info.name,
+        intent: convo.customer_info.intent,
+        details: convo.customer_info.description,
+        proposed_time: proposedTime,
+        created_at: new Date().toISOString()
+      }]);
 
       convo.step = 'done';
     } else {
@@ -429,6 +492,79 @@ Call at ${proposedTime}`,
     res.status(500).send('Failed SMS handling');
   }
 });
+
+// ================= Dashboard API Endpoints =================
+
+// ================= API: Fetch all messages =================
+app.get('/api/messages', async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('messages')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('❌ Error fetching messages:', error.message);
+      return res.status(500).json({ error: 'Failed to fetch messages' });
+    }
+
+    res.json(data);
+  } catch (err) {
+    console.error('❌ /api/messages failed:', err.message);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// ================= API: Fetch all bookings =================
+app.get('/api/bookings', async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('bookings')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('❌ Error fetching bookings:', error.message);
+      return res.status(500).json({ error: 'Failed to fetch bookings' });
+    }
+
+    res.json(data);
+  } catch (err) {
+    console.error('❌ /api/bookings failed:', err.message);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// ================= API: Add booking manually (optional) =================
+app.post('/api/bookings', async (req, res) => {
+  try {
+    const { customer_name, intent, details, proposed_time } = req.body;
+
+    const { data, error } = await supabase
+      .from('bookings')
+      .insert([
+        {
+          customer_name,
+          intent,
+          details,
+          proposed_time,
+          created_at: new Date().toISOString()
+        }
+      ])
+      .select();
+
+    if (error) {
+      console.error('❌ Error inserting booking:', error.message);
+      return res.status(500).json({ error: 'Failed to insert booking' });
+    }
+
+    res.json(data[0]);
+  } catch (err) {
+    console.error('❌ /api/bookings POST failed:', err.message);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 
 // ================= Start server =================
 const host = process.env.HOST || '0.0.0.0';

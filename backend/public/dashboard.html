@@ -104,29 +104,50 @@
       const messages = await messagesRes.json();
       const bookings = await bookingsRes.json();
 
-      const feedItems = messages.map(msg=>{
-        let typeLabel = '';
-        switch(msg.type){
-          case 'missed_call': typeLabel='Missed Call'; break;
-          case 'missed_call_no_voicemail': typeLabel='Missed Call (No Voicemail)'; break;
-          case 'voicemail': typeLabel='Voicemail'; break;
-          case 'spam': typeLabel='Spam'; break;
-          default: typeLabel='SMS';
-        }
-        return {
-          timestamp: msg.created_at || new Date().toISOString(),
-          content: `${msg.customer_name || 'Unknown'} | ${typeLabel} | ${msg.intent || 'No intent'} | ${msg.from_number || 'No number'}`
-        };
-      });
+      // --- Filter and dedupe feed ---
+      const seenNumbers = new Set();
+      const feedItems = messages
+        .filter(msg =>
+          msg.customer_name &&
+          msg.customer_name !== 'Unknown' &&
+          msg.intent &&
+          msg.intent !== 'No intent' &&
+          msg.from_number &&
+          msg.from_number !== 'No number'
+        )
+        .filter(msg => {
+          if (seenNumbers.has(msg.from_number)) return false;
+          seenNumbers.add(msg.from_number);
+          return true;
+        })
+        .map(msg => {
+          let typeLabel = '';
+          switch(msg.type){
+            case 'missed_call': typeLabel='Missed Call'; break;
+            case 'voicemail': typeLabel='Voicemail'; break;
+            default: typeLabel='Call';
+          }
+          return {
+            timestamp: msg.created_at || new Date().toISOString(),
+            content: `${msg.customer_name} | ${typeLabel} | ${msg.intent} | ${msg.from_number}`
+          };
+        });
 
-      const bookedItems = bookings.map(b=>{
-        const scheduledTime = b.proposed_time ? new Date(b.proposed_time).toLocaleString() : 'Not scheduled';
-        const number = b.from_number || 'No number';
-        return {
-          timestamp: b.proposed_time || new Date().toISOString(),
-          content: `${b.customer_name || 'Unknown'} | ${b.intent || 'No intent'} | Scheduled for: ${scheduledTime} | ${number}`
-        };
-      });
+      // --- Fix booked calls invalid data ---
+      const bookedItems = bookings
+        .filter(b => b.customer_name && b.customer_name !== 'Unknown')
+        .map(b=>{
+          let scheduledTime = 'Not scheduled';
+          if (b.proposed_time) {
+            const d = new Date(b.proposed_time);
+            if (!isNaN(d.getTime())) scheduledTime = d.toLocaleString();
+          }
+          const number = b.from_number && b.from_number !== 'No number' ? b.from_number : 'No number';
+          return {
+            timestamp: b.proposed_time || new Date().toISOString(),
+            content: `${b.customer_name} | ${b.intent || 'No intent'} | Scheduled for: ${scheduledTime} | ${number}`
+          };
+        });
 
       feedItems.sort((a,b)=>new Date(b.timestamp)-new Date(a.timestamp));
       bookedItems.sort((a,b)=>new Date(b.timestamp)-new Date(a.timestamp));

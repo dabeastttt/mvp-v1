@@ -138,13 +138,20 @@
         .filter(b => b.customer_name && b.customer_name !== 'Unknown')
         .map(b=>{
           let scheduledTime = 'Not scheduled';
+          let timestamp = b.created_at || new Date().toISOString();
+
           if (b.proposed_time) {
-            const d = new Date(b.proposed_time);
-            if (!isNaN(d.getTime())) scheduledTime = d.toLocaleString();
+            let parsedTime = Date.parse(b.proposed_time);
+            if (!isNaN(parsedTime)) {
+              const d = new Date(parsedTime);
+              scheduledTime = d.toLocaleString();
+              timestamp = parsedTime;
+            }
           }
+
           const number = b.from_number && b.from_number !== 'No number' ? b.from_number : 'No number';
           return {
-            timestamp: b.proposed_time || new Date().toISOString(),
+            timestamp,
             content: `${b.customer_name} | ${b.intent || 'No intent'} | Scheduled for: ${scheduledTime} | ${number}`
           };
         });
@@ -166,4 +173,5 @@
 </script>
 </body>
 </html>
+
 

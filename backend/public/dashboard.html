@@ -140,26 +140,22 @@ const bookedItems = bookings
   .filter(b => b.customer_name && b.customer_name !== 'Unknown')
   .map(b => {
     let scheduledTime = 'Not scheduled';
-    let timestamp = b.created_at ? new Date(b.created_at) : new Date();
+    let timestamp = b.created_at || new Date().toISOString();
 
     if (b.proposed_time) {
       const d = new Date(b.proposed_time);
-      if (!isNaN(d.getTime())) {
-        scheduledTime = d.toLocaleString();
-        timestamp = d; // use scheduled time as main timestamp if valid
-      }
+      // Convert to Sydney time
+      scheduledTime = d.toLocaleString('en-AU', { timeZone: 'Australia/Sydney' });
+      timestamp = d.getTime();
     }
 
-    const number =
-      b.from_number && b.from_number !== 'No number'
-        ? b.from_number
-        : 'No number';
-
+    const number = b.from_number && b.from_number !== 'No number' ? b.from_number : 'No number';
     return {
-      timestamp: timestamp.toISOString(),
+      timestamp,
       content: `${b.customer_name} | ${b.intent || 'No intent'} | Scheduled for: ${scheduledTime} | ${number}`
     };
   });
+
 
 feedItems.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
 bookedItems.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));

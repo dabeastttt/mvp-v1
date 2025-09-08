@@ -133,34 +133,58 @@
           };
         });
 
-      // --- Fix booked calls invalid data ---
-      const bookedItems = bookings
-        .filter(b => b.customer_name && b.customer_name !== 'Unknown')
-        .map(b=>{
-          let scheduledTime = 'Not scheduled';
-          let timestamp = b.created_at || new Date().toISOString();
 
-          if (b.proposed_time) {
-            let parsedTime = Date.parse(b.proposed_time);
-            if (!isNaN(parsedTime)) {
-              const d = new Date(parsedTime);
-              scheduledTime = d.toLocaleString();
-              timestamp = parsedTime;
-            }
-          }
 
-          const number = b.from_number && b.from_number !== 'No number' ? b.from_number : 'No number';
-          return {
-            timestamp,
-            content: `${b.customer_name} | ${b.intent || 'No intent'} | Scheduled for: ${scheduledTime} | ${number}`
-          };
-        });
+// --- Fix booked calls invalid data ---
+const bookedItems = bookings
+  .filter(b => b.customer_name && b.customer_name !== 'Unknown')
+  .map(b => {
+    let scheduledTime = 'Not scheduled';
+    let timestamp = b.created_at ? new Date(b.created_at) : new Date();
 
-      feedItems.sort((a,b)=>new Date(b.timestamp)-new Date(a.timestamp));
-      bookedItems.sort((a,b)=>new Date(b.timestamp)-new Date(a.timestamp));
+    if (b.proposed_time) {
+      const d = new Date(b.proposed_time);
+      if (!isNaN(d.getTime())) {
+        scheduledTime = d.toLocaleString();
+        timestamp = d; // use scheduled time as main timestamp if valid
+      }
+    }
 
-      feedEl.innerHTML = feedItems.length ? feedItems.map(item=>`<li>${item.content} <span class="time">${new Date(item.timestamp).toLocaleString()}</span></li>`).join('') : '<li>No feed items yet.</li>';
-      bookedEl.innerHTML = bookedItems.length ? bookedItems.map(item=>`<li>${item.content} <span class="time">${new Date(item.timestamp).toLocaleString()}</span></li>`).join('') : '<li>No booked calls yet.</li>';
+    const number =
+      b.from_number && b.from_number !== 'No number'
+        ? b.from_number
+        : 'No number';
+
+    return {
+      timestamp: timestamp.toISOString(),
+      content: `${b.customer_name} | ${b.intent || 'No intent'} | Scheduled for: ${scheduledTime} | ${number}`
+    };
+  });
+
+feedItems.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+bookedItems.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+feedEl.innerHTML = feedItems.length
+  ? feedItems
+      .map(
+        item =>
+          `<li>${item.content} <span class="time">${new Date(
+            item.timestamp
+          ).toLocaleString()}</span></li>`
+      )
+      .join('')
+  : '<li>No feed items yet.</li>';
+
+bookedEl.innerHTML = bookedItems.length
+  ? bookedItems
+      .map(
+        item =>
+          `<li>${item.content} <span class="time">${new Date(
+            item.timestamp
+          ).toLocaleString()}</span></li>`
+      )
+      .join('')
+  : '<li>No booked calls yet.</li>';
 
     } catch(err){
       feedEl.innerHTML = '<li>Error loading feed.</li>';

@@ -90,19 +90,35 @@ const conversations = {}; // store ongoing conversations
 
 // Improved time parser that handles all common formats
 function parseTime(text) {
-  text = text.toLowerCase().replace(/\s/g, '');
-  const timeRegex = /^(1|2|3|1[0-2])[:.]?([0-5][0-9])?(am|pm)?$/i;
-  const match = text.match(timeRegex);
+  if (!text) return null;
+  const lower = text.toLowerCase();
+
+  // Match things like "2", "2pm", "2:00", "2:00pm"
+  const match = lower.match(/(\d{1,2})(?::(\d{2}))?\s*(am|pm)?/);
   if (!match) return null;
 
-  let hour = parseInt(match[1]);
-  let minutes = match[2] ? parseInt(match[2]) : 0;
-  const ampm = match[3] ? match[3].toLowerCase() : null;
+  let hour = parseInt(match[1], 10);
+  let minutes = match[2] ? parseInt(match[2], 10) : 0;
+  const ampm = match[3];
 
   if (ampm === 'pm' && hour < 12) hour += 12;
   if (ampm === 'am' && hour === 12) hour = 0;
 
-  return `${hour % 24}:${minutes.toString().padStart(2, '0')}`;
+  // Default assumption: no am/pm means afternoon
+  if (!ampm && hour >= 1 && hour <= 12) {
+    if (hour < 8) hour += 12; // assume tradie jobs are afternoon
+  }
+
+  // Build a Date object for today
+  const now = new Date();
+  const d = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hour, minutes, 0, 0);
+
+  // If time has already passed today → bump to tomorrow
+  if (d < now) {
+    d.setDate(d.getDate() + 1);
+  }
+
+  return d; // full Date object
 }
 
 // GPT-powered name + intent + description extraction

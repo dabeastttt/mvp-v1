@@ -375,120 +375,149 @@ Keep message short and friendly.
 });
 
 // ================= SMS webhook =================
-app.post('/sms', async (req, res) => {
+app.post('/sms', (req, res) => {
   const from = formatPhone(req.body.From || '');
   const body = (req.body.Body || '').trim();
   const tradieNumber = process.env.TRADIE_PHONE_NUMBER;
+
   if (!from || !body) return res.status(400).send('Missing SMS data');
 
   console.log(`📩 Received SMS from ${from}: "${body}"`);
 
+  // Ensure a conversation exists
   let convo = conversations[from] || { step: 'new', tradie_notified: false, type: 'missed_call' };
-  let reply = '';
 
-  if (convo.step === 'awaiting_details') {
-    const info = await parseNameAndIntent(body);
-    convo.customer_info = info;
+  // Respond to Twilio immediately
+  res.status(200).send('<Response></Response>');
 
-    let detailsText = info.description || '';
-    if (convo.type === 'voicemail' && convo.transcription) {
-      detailsText = `${detailsText} (Voicemail: ${convo.transcription})`;
-    }
+  // Process the SMS asynchronously
+  (async () => {
+    try {
+      let reply = '';
 
-    // Notify tradie via SMS
-    await client.messages.create({
-      body: `📩 ${convo.type === 'voicemail' ? 'Voicemail received' : 'Missed call from'} ${from}
+      if (convo.step === 'awaiting_details') {
+        // Extract name and intent
+        let info;
+        try {
+          info = await parseNameAndIntent(body);
+        } catch (err) {
+          console.error('❌ parseNameAndIntent failed:', err);
+          info = { name: 'Customer', intent: 'other', description: body };
+        }
+        convo.customer_info = info;
+
+        let detailsText = info.description || '';
+        if (convo.type === 'voicemail' && convo.transcription) {
+          detailsText = `${detailsText} (Voicemail: ${convo.transcription})`;
+        }
+
+        // Notify tradie
+        await client.messages.create({
+          body: `📩 ${convo.type === 'voicemail' ? 'Voicemail received' : 'Missed call from'} ${from}
 Name: ${info.name}
 Intent: ${info.intent}
 Details: ${detailsText}
 Waiting for call time...`,
-      from: process.env.TWILIO_PHONE,
-      to: tradieNumber
-    });
-
-    // Insert into Supabase "messages"
-   await supabase.from('messages').insert([{
-  user_id: 'e0a6c24f-8ecf-42fc-b240-7d3e8350e543',
-  from_number: from,
-  type: convo.type,
-  content: body,
-  customer_name: info.name,
-  intent: info.intent,
-  details: detailsText,
-  created_at: new Date().toISOString()
-}]);
-
-
-    reply = `Thanks ${info.name}! What time works for a call between 1-3 pm?`;
-    convo.step = 'scheduling';
-  } else if (convo.step === 'scheduling') {
-    let proposedTime = parseTime(body);
-
-    if (!proposedTime) {
-      try {
-        const gptResp = await openai.chat.completions.create({
-          model: 'gpt-3.5-turbo',
-          messages: [
-            { role: 'system', content: 'You are a concise Aussie tradie assistant. Extract a valid call time between 1-3 pm from the customer message.' },
-            { role: 'user', content: `Customer said: "${body}"` }
-          ]
+          from: process.env.TWILIO_PHONE,
+          to: tradieNumber
         });
-        proposedTime = gptResp.choices[0].message.content.trim();
-      } catch (err) {
-        console.error(err);
-      }
-    }
 
-    if (proposedTime) {
-      reply = `Thanks! Everything is confirmed. We will see you at ${proposedTime}.`;
+        // Insert into Supabase "messages"
+        try {
+          await supabase.from('messages').insert([{
+            user_id: 'e0a6c24f-8ecf-42fc-b240-7d3e8350e543',
+            from_number: from,
+            type: convo.type,
+            content: body,
+            customer_name: info.name,
+            intent: info.intent,
+            details: detailsText,
+            created_at: new Date().toISOString()
+          }]);
+        } catch (err) {
+          console.error('❌ Supabase insert failed:', err);
+        }
 
-      // Notify tradie
-      await client.messages.create({
-        body: `✅ Booking confirmed for ${from}
+        // Generate reply
+        reply = `Thanks ${info.name}! What time works for a call between 1-3 pm?`;
+        convo.step = 'scheduling';
+
+      } else if (convo.step === 'scheduling') {
+        let proposedTime = parseTime(body);
+
+        if (!proposedTime) {
+          try {
+            const gptResp = await openai.chat.completions.create({
+              model: 'gpt-3.5-turbo',
+              messages: [
+                { role: 'system', content: 'You are a concise Aussie tradie assistant. Extract a valid call time between 1-3 pm from the customer message.' },
+                { role: 'user', content: `Customer said: "${body}"` }
+              ]
+            });
+            proposedTime = gptResp.choices[0].message.content.trim();
+          } catch (err) {
+            console.error('❌ OpenAI call failed:', err);
+          }
+        }
+
+        if (proposedTime) {
+          reply = `Thanks! Everything is confirmed. We will see you at ${proposedTime}.`;
+
+          // Notify tradie
+          await client.messages.create({
+            body: `✅ Booking confirmed for ${from}
 Name: ${convo.customer_info.name}
 Intent: ${convo.customer_info.intent}
 Details: ${convo.customer_info.description}
 Call at ${proposedTime}`,
-        from: process.env.TWILIO_PHONE,
-        to: tradieNumber
-      });
+            from: process.env.TWILIO_PHONE,
+            to: tradieNumber
+          });
 
-      // Insert booking into Supabase "bookings" table
-     await supabase.from('bookings').insert([{
-  user_id: 'e0a6c24f-8ecf-42fc-b240-7d3e8350e543',
-  customer_name: convo.customer_info.name,
-  intent: convo.customer_info.intent,
-  details: convo.customer_info.description,
-  proposed_time: proposedTime,
-  created_at: new Date().toISOString()
-}]);
+          // Insert booking into Supabase "bookings" table
+          try {
+            await supabase.from('bookings').insert([{
+              user_id: 'e0a6c24f-8ecf-42fc-b240-7d3e8350e543',
+              customer_name: convo.customer_info.name,
+              intent: convo.customer_info.intent,
+              details: convo.customer_info.description,
+              proposed_time: proposedTime,
+              created_at: new Date().toISOString()
+            }]);
+          } catch (err) {
+            console.error('❌ Supabase booking insert failed:', err);
+          }
 
-
-      convo.step = 'done';
-    } else {
-      try {
-        const gptResp = await openai.chat.completions.create({
-          model: 'gpt-3.5-turbo',
-          messages: [
-            { role: 'system', content: 'You are a concise Aussie tradie assistant. Suggest rescheduling between 1-3pm if customer time is invalid.' },
-            { role: 'user', content: `Customer proposed call time: "${body}".` }
-          ]
-        });
-        reply = gptResp.choices[0].message.content.trim();
-      } catch (err) {
-        console.error(err);
+          convo.step = 'done';
+        } else {
+          // Ask customer to reschedule via OpenAI
+          try {
+            const gptResp = await openai.chat.completions.create({
+              model: 'gpt-3.5-turbo',
+              messages: [
+                { role: 'system', content: 'You are a concise Aussie tradie assistant. Suggest rescheduling between 1-3pm if customer time is invalid.' },
+                { role: 'user', content: `Customer proposed call time: "${body}".` }
+              ]
+            });
+            reply = gptResp.choices[0].message.content.trim();
+          } catch (err) {
+            console.error('❌ OpenAI reschedule call failed:', err);
+          }
+        }
       }
-    }
-  }
 
-  try {
-    if (reply) await client.messages.create({ body: reply, from: process.env.TWILIO_PHONE, to: from });
-    conversations[from] = convo;
-    res.status(200).send('<Response></Response>');
-  } catch (err) {
-    console.error(err);
-    res.status(500).send('Failed SMS handling');
-  }
+      // Send reply if available
+      if (reply) {
+        await client.messages.create({ body: reply, from: process.env.TWILIO_PHONE, to: from });
+      }
+
+    } catch (err) {
+      console.error('❌ SMS async processing failed:', err);
+    } finally {
+      // Always save the updated conversation state
+      conversations[from] = convo;
+    }
+  })();
 });
 
 // ================= Dashboard API Endpoints =================

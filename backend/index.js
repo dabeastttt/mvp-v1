@@ -42,32 +42,20 @@ app.get('/login', (req, res) => res.sendFile(path.join(__dirname, 'public/login.
 app.get('/dashboard', (req, res) => res.sendFile(path.join(__dirname, 'public/dashboard.html')));
 app.get('/success', (req, res) => res.sendFile(path.join(__dirname, 'public/success.html')));
 
-// ================= Users =================
-const users = [
-  { email: 'admin@example.com', password: 'password123' } // sample user
-];
+// Admin credentials for testing
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'admin@example.com';
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'password123';
 
-// Login with Supabase
 app.post('/dashboard/view', async (req, res) => {
   const { email, password } = req.body;
 
-  try {
-    const { data: user, error } = await supabase
-      .from('users')
-      .select('*')
-      .eq('email', email)
-      .eq('password', password) // ⚠️ for MVP only (hash later!)
-      .single();
-
-    if (error || !user) {
-      return res.send('Invalid credentials. <a href="/login">Try again</a>');
-    }
-
+  if (email === ADMIN_EMAIL && password === ADMIN_PASSWORD) {
+    // Set a simple session cookie for testing (optional)
+    // res.cookie('user', 'admin', { httpOnly: true });
     return res.redirect('/dashboard');
-  } catch (err) {
-    console.error('❌ Login failed:', err.message);
-    res.status(500).send('Login error');
   }
+
+  return res.send('Invalid credentials. <a href="/login">Try again</a>');
 });
 
 
@@ -237,11 +225,13 @@ app.post('/call-status', async (req, res) => {
 
       // Insert missed call into Supabase messages
       await supabase.from('messages').insert([{
-        from_number: from,
-        type: 'missed_call',
-        content: '[No message left]',
-        created_at: new Date().toISOString()
-      }]);
+  user_id: 'e0a6c24f-8ecf-42fc-b240-7d3e8350e543', // attach to your user
+  from_number: from,
+  type: 'missed_call',
+  content: '[No message left]',
+  created_at: new Date().toISOString()
+}]);
+
 
       console.log(`✅ Missed call (no-answer/busy) handled for ${from}`);
     }
@@ -260,12 +250,14 @@ app.post('/call-status', async (req, res) => {
       });
 
       // Insert into Supabase messages
-      await supabase.from('messages').insert([{
-        from_number: from,
-        type: 'missed_call_no_voicemail',
-        content: '[No voicemail]',
-        created_at: new Date().toISOString()
-      }]);
+    await supabase.from('messages').insert([{
+  user_id: 'e0a6c24f-8ecf-42fc-b240-7d3e8350e543',
+  from_number: from,
+  type: 'missed_call_no_voicemail',
+  content: '[No voicemail]',
+  created_at: new Date().toISOString()
+}]);
+
 
       console.log(`✅ Missed call (no voicemail) handled for ${from}`);
     }
@@ -346,12 +338,14 @@ app.post('/voicemail', async (req, res) => {
     });
 
     // Insert voicemail into Supabase "messages" table
-    await supabase.from('messages').insert([{
-      from_number: from,
-      type: 'voicemail',
-      transcription,
-      created_at: new Date().toISOString()
-    }]);
+   await supabase.from('messages').insert([{
+  user_id: 'e0a6c24f-8ecf-42fc-b240-7d3e8350e543',
+  from_number: from,
+  type: 'voicemail',
+  transcription,
+  created_at: new Date().toISOString()
+}]);
+
 
     // Generate AI follow-up SMS
     const gptResp = await openai.chat.completions.create({
@@ -413,15 +407,17 @@ Waiting for call time...`,
     });
 
     // Insert into Supabase "messages"
-    await supabase.from('messages').insert([{
-      from_number: from,
-      type: convo.type,
-      content: body,
-      customer_name: info.name,
-      intent: info.intent,
-      details: detailsText,
-      created_at: new Date().toISOString()
-    }]);
+   await supabase.from('messages').insert([{
+  user_id: 'e0a6c24f-8ecf-42fc-b240-7d3e8350e543',
+  from_number: from,
+  type: convo.type,
+  content: body,
+  customer_name: info.name,
+  intent: info.intent,
+  details: detailsText,
+  created_at: new Date().toISOString()
+}]);
+
 
     reply = `Thanks ${info.name}! What time works for a call between 1-3 pm?`;
     convo.step = 'scheduling';
@@ -458,13 +454,15 @@ Call at ${proposedTime}`,
       });
 
       // Insert booking into Supabase "bookings" table
-      await supabase.from('bookings').insert([{
-        customer_name: convo.customer_info.name,
-        intent: convo.customer_info.intent,
-        details: convo.customer_info.description,
-        proposed_time: proposedTime,
-        created_at: new Date().toISOString()
-      }]);
+     await supabase.from('bookings').insert([{
+  user_id: 'e0a6c24f-8ecf-42fc-b240-7d3e8350e543',
+  customer_name: convo.customer_info.name,
+  intent: convo.customer_info.intent,
+  details: convo.customer_info.description,
+  proposed_time: proposedTime,
+  created_at: new Date().toISOString()
+}]);
+
 
       convo.step = 'done';
     } else {
@@ -498,10 +496,12 @@ Call at ${proposedTime}`,
 // ================= API: Fetch all messages =================
 app.get('/api/messages', async (req, res) => {
   try {
-    const { data, error } = await supabase
-      .from('messages')
-      .select('*')
-      .order('created_at', { ascending: false });
+ const { data, error } = await supabase
+  .from('messages')
+  .select('*')
+  .eq('user_id', 'e0a6c24f-8ecf-42fc-b240-7d3e8350e543')
+  .order('created_at', { ascending: false });
+
 
     if (error) {
       console.error('❌ Error fetching messages:', error.message);
@@ -518,10 +518,12 @@ app.get('/api/messages', async (req, res) => {
 // ================= API: Fetch all bookings =================
 app.get('/api/bookings', async (req, res) => {
   try {
-    const { data, error } = await supabase
-      .from('bookings')
-      .select('*')
-      .order('created_at', { ascending: false });
+  const { data, error } = await supabase
+  .from('bookings')
+  .select('*')
+  .eq('user_id', 'e0a6c24f-8ecf-42fc-b240-7d3e8350e543')
+  .order('created_at', { ascending: false });
+
 
     if (error) {
       console.error('❌ Error fetching bookings:', error.message);
@@ -540,18 +542,18 @@ app.post('/api/bookings', async (req, res) => {
   try {
     const { customer_name, intent, details, proposed_time } = req.body;
 
-    const { data, error } = await supabase
-      .from('bookings')
-      .insert([
-        {
-          customer_name,
-          intent,
-          details,
-          proposed_time,
-          created_at: new Date().toISOString()
-        }
-      ])
-      .select();
+   const { data, error } = await supabase
+  .from('bookings')
+  .insert([{
+    user_id: 'e0a6c24f-8ecf-42fc-b240-7d3e8350e543',
+    customer_name,
+    intent,
+    details,
+    proposed_time,
+    created_at: new Date().toISOString()
+  }])
+  .select();
+
 
     if (error) {
       console.error('❌ Error inserting booking:', error.message);

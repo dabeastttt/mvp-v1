@@ -66,7 +66,6 @@
 </main>
 
 <script>
-  // === Background animation ===
   const canvas = document.getElementById('backgroundCanvas');
   const ctx = canvas.getContext('2d');
   let width, height;
@@ -82,53 +81,15 @@
       this.vy = (Math.random()-0.5)*0.8;
       this.alpha = 0.6 + Math.random()*0.4;
     }
-    move() {
-      this.x += this.vx; this.y += this.vy;
-      if(this.x<0||this.x>width) this.vx*=-1;
-      if(this.y<0||this.y>height) this.vy*=-1;
-    }
-    draw() {
-      ctx.beginPath();
-      ctx.arc(this.x,this.y,this.radius,0,Math.PI*2);
-      ctx.fillStyle = `rgba(255,107,0,${this.alpha})`;
-      ctx.shadowColor = 'rgba(255,107,0,0.7)';
-      ctx.shadowBlur = 8;
-      ctx.fill();
-      ctx.shadowBlur = 0;
-    }
+    move() { this.x += this.vx; this.y += this.vy; if(this.x<0||this.x>width) this.vx*=-1; if(this.y<0||this.y>height) this.vy*=-1; }
+    draw() { ctx.beginPath(); ctx.arc(this.x,this.y,this.radius,0,Math.PI*2); ctx.fillStyle = `rgba(255,107,0,${this.alpha})`; ctx.shadowColor='rgba(255,107,0,0.7)'; ctx.shadowBlur=8; ctx.fill(); ctx.shadowBlur=0; }
   }
 
   const particles = Array.from({length:120},()=>new Particle());
-  function connectParticles() {
-    for(let i=0;i<particles.length;i++){
-      for(let j=i+1;j<particles.length;j++){
-        const dx = particles[i].x - particles[j].x;
-        const dy = particles[i].y - particles[j].y;
-        const dist = Math.sqrt(dx*dx+dy*dy);
-        if(dist<120){
-          ctx.beginPath();
-          ctx.strokeStyle=`rgba(255,107,0,${1-dist/120})`;
-          ctx.lineWidth=1;
-          ctx.shadowColor='rgba(255,107,0,0.5)';
-          ctx.shadowBlur=6;
-          ctx.moveTo(particles[i].x,particles[i].y);
-          ctx.lineTo(particles[j].x,particles[j].y);
-          ctx.stroke();
-          ctx.shadowBlur=0;
-        }
-      }
-    }
-  }
-
-  function animate(){
-    ctx.clearRect(0,0,width,height);
-    particles.forEach(p=>{p.move();p.draw();});
-    connectParticles();
-    requestAnimationFrame(animate);
-  }
+  function connectParticles() { for(let i=0;i<particles.length;i++){ for(let j=i+1;j<particles.length;j++){ const dx = particles[i].x - particles[j].x; const dy = particles[i].y - particles[j].y; const dist = Math.sqrt(dx*dx+dy*dy); if(dist<120){ ctx.beginPath(); ctx.strokeStyle=`rgba(255,107,0,${1-dist/120})`; ctx.lineWidth=1; ctx.shadowColor='rgba(255,107,0,0.5)'; ctx.shadowBlur=6; ctx.moveTo(particles[i].x,particles[i].y); ctx.lineTo(particles[j].x,particles[j].y); ctx.stroke(); ctx.shadowBlur=0; } } } }
+  function animate(){ ctx.clearRect(0,0,width,height); particles.forEach(p=>{p.move();p.draw();}); connectParticles(); requestAnimationFrame(animate); }
   animate();
 
-  // === Fetch and render feed + booked calls ===
   async function refreshFeed() {
     const feedEl = document.getElementById('feed');
     const bookedEl = document.getElementById('booked');
@@ -143,7 +104,6 @@
       const messages = await messagesRes.json();
       const bookings = await bookingsRes.json();
 
-      // Live feed items
       const feedItems = messages.map(msg=>{
         let typeLabel = '';
         switch(msg.type){
@@ -159,25 +119,20 @@
         };
       });
 
-      // Booked calls items
       const bookedItems = bookings.map(b=>{
+        const scheduledTime = b.proposed_time ? new Date(b.proposed_time).toLocaleString() : 'Not scheduled';
+        const number = b.from_number || 'No number';
         return {
           timestamp: b.proposed_time || new Date().toISOString(),
-          content: `${b.customer_name || 'Unknown'} | ${b.intent || 'No intent'} | Scheduled for: ${new Date(b.proposed_time).toLocaleString()} | ${b.from_number || 'No number'}`
+          content: `${b.customer_name || 'Unknown'} | ${b.intent || 'No intent'} | Scheduled for: ${scheduledTime} | ${number}`
         };
       });
 
-      // Sort by timestamp descending
       feedItems.sort((a,b)=>new Date(b.timestamp)-new Date(a.timestamp));
       bookedItems.sort((a,b)=>new Date(b.timestamp)-new Date(a.timestamp));
 
-      feedEl.innerHTML = feedItems.length ? feedItems.map(item=>
-        `<li>${item.content} <span class="time">${new Date(item.timestamp).toLocaleString()}</span></li>`
-      ).join('') : '<li>No feed items yet.</li>';
-
-      bookedEl.innerHTML = bookedItems.length ? bookedItems.map(item=>
-        `<li>${item.content} <span class="time">${new Date(item.timestamp).toLocaleString()}</span></li>`
-      ).join('') : '<li>No booked calls yet.</li>';
+      feedEl.innerHTML = feedItems.length ? feedItems.map(item=>`<li>${item.content} <span class="time">${new Date(item.timestamp).toLocaleString()}</span></li>`).join('') : '<li>No feed items yet.</li>';
+      bookedEl.innerHTML = bookedItems.length ? bookedItems.map(item=>`<li>${item.content} <span class="time">${new Date(item.timestamp).toLocaleString()}</span></li>`).join('') : '<li>No booked calls yet.</li>';
 
     } catch(err){
       feedEl.innerHTML = '<li>Error loading feed.</li>';
@@ -190,3 +145,4 @@
 </script>
 </body>
 </html>
+

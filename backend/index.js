@@ -212,7 +212,6 @@ app.post('/register', async (req, res) => {
 
 
 // ================= Call-status handler =================
-const pendingVoicemails = new Set();
 
 app.post('/call-status', async (req, res) => {
   const { CallStatus, From: rawFrom, CallSid, RecordingUrl } = req.body;

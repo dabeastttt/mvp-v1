@@ -225,47 +225,77 @@ app.post('/call-status', async (req, res) => {
   const convo = conversations[from];
 
   try {
-    // Case 0: Completed call with RecordingUrl → mark pending voicemail, skip intro
+    // 1️⃣ Completed call with voicemail → mark pending, skip AI follow-up
     if (CallStatus === 'completed' && RecordingUrl && CallSid) {
       pendingVoicemails.add(CallSid);
-      console.log(`[call-status] Pending voicemail marked for CallSid=${CallSid}, skipping intro`);
-      return res.status(200).send('Voicemail pending, intro skipped');
+      console.log(`[call-status] Pending voicemail marked for CallSid=${CallSid}, skipping AI follow-up`);
+      return res.status(200).send('Voicemail pending, AI follow-up skipped');
     }
 
-    // Case 1: Busy or no-answer → only send AI follow-up if no voicemail pending
+    // 2️⃣ Busy or no-answer → AI follow-up only if no voicemail pending
     if (['no-answer', 'busy'].includes(CallStatus)) {
-      if (!convo || (convo.type !== 'voicemail' && convo.step !== 'voicemail_followup_sent')) {
+      if (!convo || convo.step !== 'voicemail_followup_sent') {
         if (CallSid && pendingVoicemails.has(CallSid)) {
-          console.log(`⏳ Voicemail pending for CallSid=${CallSid}, skipping intro`);
+          console.log(`⏳ Voicemail pending for CallSid=${CallSid}, skipping AI follow-up`);
         } else {
-          // No voicemail expected → send AI follow-up to customer
-          // This will trigger the same AI follow-up function you have in /voicemail
-          // Just mark the convo so tradie notification is sent
-          conversations[from] = { step: 'awaiting_details', type: 'missed_call_no_voicemail' };
+          // Trigger AI follow-up for customer
+          const transcription = '[No voicemail left]';
+          conversations[from] = { step: 'voicemail_followup_sent', type: 'missed_call_no_voicemail', transcription, tradie_notified: false };
 
+          // Notify tradie
           await client.messages.create({
-            body: `⚠️ Missed call from ${from}. Assistant sent initial follow-up.`,
+            body: `⚠️ Missed call from ${from}. Admin sent follow-up notification.`,
             from: process.env.TWILIO_PHONE,
             to: tradieNumber
           });
 
-          console.log(`✅ Missed call handled for ${from} (no voicemail)`);
+          // AI follow-up to customer
+          const gptResp = await openai.chat.completions.create({
+            model: 'gpt-3.5-turbo',
+            messages: [
+              { role: 'system', content: 'You are a concise Aussie tradie assistant. Ask for name and intent (quote/booking/other) if they missed the call.' },
+              { role: 'user', content: `Transcription: "${transcription}"` }
+            ]
+          });
+          const aiReply = gptResp.choices[0].message.content.trim();
+          if (aiReply && isValidAUSMobile(from)) {
+            await client.messages.create({ body: aiReply, from: process.env.TWILIO_PHONE, to: from });
+          }
+
+          console.log(`✅ Busy/no-answer AI follow-up sent for ${from}`);
         }
       }
     }
 
-    // Case 2: Completed call without voicemail → only notify tradie
+    // 3️⃣ Completed call with no voicemail → same AI follow-up
     else if (CallStatus === 'completed') {
       if (CallSid && pendingVoicemails.has(CallSid)) {
-        console.log(`[call-status] CallSid=${CallSid} has pending voicemail, skipping customer follow-up`);
-      } else if (!convo || convo.step !== 'awaiting_details') {
-        conversations[from] = { step: 'awaiting_details', type: 'missed_call_no_voicemail' };
+        console.log(`[call-status] CallSid=${CallSid} has pending voicemail, skipping AI follow-up`);
+      } else if (!convo || convo.step !== 'voicemail_followup_sent') {
+        const transcription = '[No voicemail left]';
+        conversations[from] = { step: 'voicemail_followup_sent', type: 'missed_call_no_voicemail', transcription, tradie_notified: false };
+
+        // Notify tradie
         await client.messages.create({
-          body: `⚠️ Missed call (completed/no voicemail) from ${from}. Assistant sent initial follow-up.`,
+          body: `⚠️ Missed call (completed/no voicemail) from ${from}. Admin sent follow-up notification.`,
           from: process.env.TWILIO_PHONE,
           to: tradieNumber
         });
-        console.log(`✅ Missed call (completed/no voicemail) handled for ${from}`);
+
+        // AI follow-up to customer
+        const gptResp = await openai.chat.completions.create({
+          model: 'gpt-3.5-turbo',
+          messages: [
+            { role: 'system', content: 'You are a concise Aussie tradie assistant. Ask for name and intent (quote/booking/other) if they missed the call.' },
+            { role: 'user', content: `Transcription: "${transcription}"` }
+          ]
+        });
+        const aiReply = gptResp.choices[0].message.content.trim();
+        if (aiReply && isValidAUSMobile(from)) {
+          await client.messages.create({ body: aiReply, from: process.env.TWILIO_PHONE, to: from });
+        }
+
+        console.log(`✅ Completed/no voicemail AI follow-up sent for ${from}`);
       }
     }
 

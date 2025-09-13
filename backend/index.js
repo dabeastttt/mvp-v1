@@ -397,7 +397,7 @@ async function transcribeRecording(url) {
 
 // ================= Voicemail callback =================
 app.post('/voicemail', async (req, res) => {
-  const { CallSid, RecordingSid, From: rawFrom, TranscriptionText } = req.body;
+  const { CallSid, RecordingSid, From: rawFrom } = req.body;
   const from = formatPhone(rawFrom || '');
   const tradieNumber = process.env.TRADIE_PHONE_NUMBER;
 
@@ -416,26 +416,26 @@ app.post('/voicemail', async (req, res) => {
     console.log(`[voicemail] Cleared no-voicemail timeout for CallSid=${CallSid}`);
   }
 
-  // Skip if we've already sent AI follow-up for this caller
-  const convo = conversations[from];
-  if (convo?.step === 'voicemail_followup_sent') {
-    console.log(`[voicemail] Already handled voicemail follow-up for ${from}, skipping.`);
-    return res.status(200).send('Voicemail already handled');
+  // Always transcribe voicemail
+  let transcription = '[Unavailable]';
+  try {
+    const recordingUrl = `https://api.twilio.com/2010-04-01/Accounts/${process.env.TWILIO_ACCOUNT_SID}/Recordings/${RecordingSid}.mp3`;
+    transcription = await transcribeRecording(recordingUrl);
+  } catch (err) {
+    console.error('❌ Transcription failed:', err.message);
   }
 
-  // Use Twilio's transcription if available, otherwise fallback
-  const transcription = TranscriptionText || '[Unavailable]';
-
-  // Save conversation state
+  // Save conversation state but keep AI follow-up flag separate
+  const convo = conversations[from] || {};
   conversations[from] = {
-    step: 'voicemail_followup_sent',
+    ...convo,
     transcription,
     type: 'voicemail',
-    tradie_notified: false
+    tradie_notified: true // mark that tradie has been notified
   };
 
   try {
-    // Notify tradie
+    // Notify tradie even if AI follow-up already went out
     await client.messages.create({
       body: `🎙️ Voicemail from ${from}: "${transcription}"`,
       from: process.env.TWILIO_PHONE,
@@ -450,22 +450,8 @@ app.post('/voicemail', async (req, res) => {
       created_at: new Date().toISOString()
     }]);
 
-    // AI follow-up to trigger rest of the workflow
-    const gptResp = await openai.chat.completions.create({
-      model: 'gpt-3.5-turbo',
-      messages: [
-        { role: 'system', content: 'You are a concise Aussie tradie assistant. Ask for name and intent (quote/booking/other). Keep message short and friendly.' },
-        { role: 'user', content: `Transcription of voicemail: "${transcription}"` }
-      ]
-    });
-
-    const aiReply = gptResp.choices[0].message.content.trim();
-    if (aiReply && isValidAUSMobile(from)) {
-      await client.messages.create({ body: aiReply, from: process.env.TWILIO_PHONE, to: from });
-    }
-
-    console.log(`✅ Voicemail processed & AI follow-up sent for ${from}`);
-    res.status(200).send('Voicemail processed with AI follow-up');
+    console.log(`✅ Voicemail processed & tradie notified for ${from}`);
+    res.status(200).send('Voicemail processed and tradie notified');
   } catch (err) {
     console.error('❌ Voicemail handling failed:', err.message);
     res.status(500).send('Failed voicemail handling');

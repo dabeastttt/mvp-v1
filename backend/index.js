@@ -30,7 +30,7 @@ const OpenAI = require('openai').default;
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 const app = express();
-const port = process.env.PORT || 3001;
+const port = process.env.PORT || 3000;
 
 app.set('trust proxy', 1);
 app.use(bodyParser.json());
@@ -640,7 +640,6 @@ app.post('/api/bookings', async (req, res) => {
 
 
 // ================= Start server =================
-const port = process.env.PORT || 3000;   // <- Use Render port
 const host = '0.0.0.0';                  // <- 0.0.0.0 is fine
 app.listen(port, host, () => {
   console.log(`🚀 Server running at http://${host}:${port}`);

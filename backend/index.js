@@ -640,5 +640,8 @@ app.post('/api/bookings', async (req, res) => {
 
 
 // ================= Start server =================
-const host = process.env.HOST || '0.0.0.0';
-app.listen(port, host, () => console.log(`🚀 Server running at http://${host}:${port}`));
+const port = process.env.PORT || 3000;   // <- Use Render port
+const host = '0.0.0.0';                  // <- 0.0.0.0 is fine
+app.listen(port, host, () => {
+  console.log(`🚀 Server running at http://${host}:${port}`);
+});

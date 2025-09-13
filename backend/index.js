@@ -305,17 +305,10 @@ app.post('/voicemail', async (req, res) => {
   const recordingUrl = req.body.RecordingUrl ? `${req.body.RecordingUrl}.mp3` : '';
   const from = formatPhone(req.body.From || '');
   const tradieNumber = process.env.TRADIE_PHONE_NUMBER;
-  const callSid = req.body.CallSid;
 
   if (!from) return res.status(400).send('Missing caller number');
 
-  console.log(`[voicemail] CallSid=${callSid} from=${from} recordingUrl=${!!recordingUrl}`);
-
-  // Clear pendingVoicemails so /call-status doesn't trigger another intro
-  if (callSid && pendingVoicemails.has(callSid)) {
-    pendingVoicemails.delete(callSid);
-    console.log(`[voicemail] Cleared pendingVoicemails for CallSid=${callSid}`);
-  }
+  console.log(`[voicemail] CallSid=${req.body.CallSid} from=${from} recordingUrl=${!!recordingUrl}`);
 
   let transcription = '[Unavailable]';
   try {
@@ -324,16 +317,16 @@ app.post('/voicemail', async (req, res) => {
     console.error('❌ Transcription failed:', err.message);
   }
 
-  // Store conversation state: mark AI follow-up already sent
+  // Store conversation state and mark that AI follow-up has been sent
   conversations[from] = { 
-    step: 'voicemail_followup_sent',  // important: prevents another intro
+    step: 'voicemail_followup_sent',
     transcription,
     type: 'voicemail',
     tradie_notified: false
   };
 
   try {
-    // Notify tradie of voicemail
+    // Notify tradie
     await client.messages.create({
       body: `🎙️ Voicemail from ${from}: "${transcription}"`,
       from: process.env.TWILIO_PHONE,
@@ -348,7 +341,7 @@ app.post('/voicemail', async (req, res) => {
       created_at: new Date().toISOString()
     }]);
 
-    // Send AI follow-up SMS (only once)
+    // Send AI follow-up
     const gptResp = await openai.chat.completions.create({
       model: 'gpt-3.5-turbo',
       messages: [
@@ -367,12 +360,8 @@ Keep message short and friendly.
       await client.messages.create({ body: aiReply, from: process.env.TWILIO_PHONE, to: from });
     }
 
-    // Update step to 'scheduling' so /sms can continue the flow
-    conversations[from].step = 'scheduling';
-
     console.log(`✅ Voicemail processed & AI follow-up sent for ${from}`);
     res.status(200).send('Voicemail processed with AI follow-up');
-
   } catch (err) {
     console.error('❌ Voicemail handling failed:', err.message);
     res.status(500).send('Failed voicemail handling');

@@ -322,17 +322,18 @@ app.post('/call-status', async (req, res) => {
 
 // ===== /voice handler =====
 app.post('/voice', (req, res) => {
-    const response = new twilio.twiml.VoiceResponse();
-    response.say("Hi! The tradie is unavailable. Leave a message after the beep.");
-    response.record({
-        maxLength: 60,
-        playBeep: true,
-        transcribe: true,
-        transcribeCallback: process.env.BASE_URL + '/voicemail'
-    });
-    response.hangup();
-    res.type('text/xml').send(response.toString());
+  const response = new twilio.twiml.VoiceResponse();
+  response.say("Hi! The tradie is unavailable. Leave a message after the beep.");
+  response.record({
+    maxLength: 60,
+    playBeep: true,
+    recordingStatusCallback: process.env.BASE_URL + '/voicemail',
+    recordingStatusCallbackEvent: ['completed'] // trigger only once
+  });
+  response.hangup();
+  res.type('text/xml').send(response.toString());
 });
+
 
 
 // ================= Transcribe helper =================

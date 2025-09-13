@@ -19,6 +19,9 @@ const supabase = createClient(
 const fetch = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args));
 
 
+const pendingVoicemails = new Set(); // keep track of CallSids with voicemail
+
+
 // Twilio client
 const client = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
 
@@ -209,18 +212,28 @@ app.post('/register', async (req, res) => {
 
 // call status 
 
+// ================= Call-status handler =================
 app.post('/call-status', async (req, res) => {
-  const { CallStatus, RecordingUrl, From: rawFrom } = req.body;
+  const { CallStatus, RecordingUrl, CallSid, From: rawFrom } = req.body;
   const from = formatPhone(rawFrom);
   const tradieNumber = process.env.TRADIE_PHONE_NUMBER;
 
   if (!from) return res.status(400).send('Missing caller number');
 
-  console.log(`[call-status] status=${CallStatus} from=${from} recordingUrl=${!!RecordingUrl}`);
+  console.log(`[call-status] status=${CallStatus} from=${from} recordingUrl=${!!RecordingUrl} CallSid=${CallSid}`);
 
   const convo = conversations[from];
 
   try {
+    // Case 0: Voicemail will arrive → mark pending and skip intro
+    if (CallStatus === 'completed' && RecordingUrl) {
+      if (CallSid) {
+        pendingVoicemails.add(CallSid);
+        console.log(`[call-status] Pending voicemail marked for CallSid=${CallSid}`);
+      }
+      return res.status(200).send('Call status processed (voicemail pending)');
+    }
+
     // Case 1: Busy or no-answer → missed call intro
     if (['no-answer', 'busy'].includes(CallStatus)) {
       if (!convo || (convo.type !== 'voicemail' && convo.step !== 'voicemail_followup_sent')) {
@@ -249,6 +262,12 @@ app.post('/call-status', async (req, res) => {
 
     // Case 2: Completed call with no voicemail → missed call intro
     else if (CallStatus === 'completed' && !RecordingUrl) {
+      // Skip if voicemail is pending
+      if (CallSid && pendingVoicemails.has(CallSid)) {
+        console.log(`[call-status] CallSid=${CallSid} has pending voicemail, skipping intro.`);
+        return res.status(200).send('Voicemail pending, no intro sent');
+      }
+
       if (!convo || (convo.step !== 'voicemail_followup_sent' && convo.step !== 'awaiting_details')) {
         const followUpMsg = `Hi, it’s ${process.env.TRADIE_NAME} from ${process.env.TRADES_BUSINESS}. Looks like I missed your call — can I grab your name and what you’re after (quote, booking, or something else)?`;
         await client.messages.create({ body: followUpMsg, from: process.env.TWILIO_PHONE, to: from });
@@ -281,7 +300,6 @@ app.post('/call-status', async (req, res) => {
 
   res.status(200).send('Call status processed');
 });
-
 
 // ================= Voice handler =================
 app.post('/voice', (req, res) => {

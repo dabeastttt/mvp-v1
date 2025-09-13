@@ -212,6 +212,7 @@ app.post('/register', async (req, res) => {
     }
 });
 
+
 // ================= Call-status handler =================
 app.post('/call-status', async (req, res) => {
   const { CallStatus, From: rawFrom, CallSid, RecordingUrl } = req.body;
@@ -227,6 +228,13 @@ app.post('/call-status', async (req, res) => {
     // 1️⃣ Completed call and Twilio already provided RecordingUrl → voicemail detected
     if (CallStatus === 'completed' && RecordingUrl && RecordingUrl.trim() !== '') {
       pendingVoicemails.add(CallSid);
+
+      // cancel any "no voicemail" timeout if it exists
+      if (pendingNoVoicemail.has(CallSid)) {
+        clearTimeout(pendingNoVoicemail.get(CallSid));
+        pendingNoVoicemail.delete(CallSid);
+      }
+
       console.log(`[call-status] Detected voicemail for ${from}, skipping AI follow-up.`);
       return res.status(200).send('Voicemail detected, skipping follow-up');
     }
@@ -238,7 +246,6 @@ app.post('/call-status', async (req, res) => {
       }
 
       const timeout = setTimeout(async () => {
-        // If voicemail hasn’t arrived in 10s → treat as no voicemail
         if (!pendingVoicemails.has(CallSid)) {
           console.log(`[call-status] No voicemail arrived for ${from}, sending missed-call AI follow-up.`);
 
@@ -281,14 +288,12 @@ app.post('/call-status', async (req, res) => {
       const transcription = '[No voicemail left]';
       conversations[from] = { step: 'voicemail_followup_sent', type: 'missed_call_no_voicemail', transcription, tradie_notified: false };
 
-      // Notify tradie
       await client.messages.create({
         body: `⚠️ Missed call from ${from}. Admin sent follow-up notification.`,
         from: process.env.TWILIO_PHONE,
         to: tradieNumber
       });
 
-      // AI follow-up to customer
       const gptResp = await openai.chat.completions.create({
         model: 'gpt-3.5-turbo',
         messages: [
@@ -372,7 +377,16 @@ app.post('/voicemail', async (req, res) => {
   console.log(`[voicemail] CallSid=${CallSid} from=${from} recordingUrl=${!!recordingUrl}`);
 
   // Remove from pending voicemails
-  if (CallSid && pendingVoicemails.has(CallSid)) pendingVoicemails.delete(CallSid);
+  if (CallSid && pendingVoicemails.has(CallSid)) {
+    pendingVoicemails.delete(CallSid);
+  }
+
+  // Cancel any "no voicemail" timeout if it was set
+  if (CallSid && pendingNoVoicemail.has(CallSid)) {
+    clearTimeout(pendingNoVoicemail.get(CallSid));
+    pendingNoVoicemail.delete(CallSid);
+    console.log(`[voicemail] Cleared no-voicemail timeout for CallSid=${CallSid}`);
+  }
 
   // Skip if we already handled a voicemail follow-up for this caller
   const convo = conversations[from];
@@ -438,6 +452,7 @@ Keep message short and friendly.
     res.status(500).send('Failed voicemail handling');
   }
 });
+
 
 // ================= SMS webhook =================
 app.post('/sms', (req, res) => {

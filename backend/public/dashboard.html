@@ -123,10 +123,11 @@
         .map(msg => {
           let typeLabel = '';
           switch(msg.type){
-            case 'missed_call': typeLabel='Missed Call'; break;
-            case 'voicemail': typeLabel='Voicemail'; break;
-            default: typeLabel='Call';
-          }
+          case 'missed_call_no_voicemail': typeLabel='Missed Call'; break;
+          case 'voicemail': typeLabel='Voicemail'; break;
+          default: typeLabel='Call';
+         }
+
           return {
             timestamp: msg.created_at || new Date().toISOString(),
             content: `${msg.customer_name} | ${typeLabel} | ${msg.intent} | ${msg.from_number}`

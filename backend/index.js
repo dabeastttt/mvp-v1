@@ -425,17 +425,18 @@ app.post('/voicemail', async (req, res) => {
     console.error('❌ Transcription failed:', err.message);
   }
 
-  // Save conversation state but keep AI follow-up flag separate
+  // Save conversation state
   const convo = conversations[from] || {};
   conversations[from] = {
     ...convo,
     transcription,
     type: 'voicemail',
-    tradie_notified: true // mark that tradie has been notified
+    tradie_notified: true,
+    ai_followup_sent: convo.ai_followup_sent || false
   };
 
   try {
-    // Notify tradie even if AI follow-up already went out
+    // Notify tradie
     await client.messages.create({
       body: `🎙️ Voicemail from ${from}: "${transcription}"`,
       from: process.env.TWILIO_PHONE,
@@ -449,6 +450,30 @@ app.post('/voicemail', async (req, res) => {
       transcription,
       created_at: new Date().toISOString()
     }]);
+
+    // Only send AI follow-up if it hasn't been sent yet
+    if (!conversations[from].ai_followup_sent) {
+      const gptResp = await openai.chat.completions.create({
+        model: 'gpt-3.5-turbo',
+        messages: [
+          { role: 'system', content: `
+You are a concise Aussie tradie assistant.
+Send one follow-up SMS asking for customer name and intent (quote/booking/other).
+Offer to schedule a call between 1-3pm.
+Keep message short and friendly.
+          `},
+          { role: 'user', content: `Transcription of voicemail: "${transcription}"` }
+        ]
+      });
+
+      const aiReply = gptResp.choices[0].message.content.trim();
+      if (aiReply && isValidAUSMobile(from)) {
+        await client.messages.create({ body: aiReply, from: process.env.TWILIO_PHONE, to: from });
+      }
+
+      conversations[from].ai_followup_sent = true; // mark as sent
+      console.log(`✅ AI follow-up sent to customer for voicemail from ${from}`);
+    }
 
     console.log(`✅ Voicemail processed & tradie notified for ${from}`);
     res.status(200).send('Voicemail processed and tradie notified');

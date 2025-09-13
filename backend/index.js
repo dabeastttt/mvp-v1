@@ -210,7 +210,6 @@ app.post('/register', async (req, res) => {
   }
 });
 
-
 // ================= Call-status + Voicemail Flow =================
 app.post('/call-status', async (req, res) => {
   const { CallStatus: callStatus, RecordingUrl: recordingUrl = '', CallSid: callSid, From: rawFrom } = req.body;
@@ -218,78 +217,55 @@ app.post('/call-status', async (req, res) => {
   const tradieNumber = process.env.TRADIE_PHONE_NUMBER;
 
   if (!from) return res.status(400).send('Missing caller number');
-
   console.log(`[call-status] CallSid=${callSid}, status=${callStatus}, recording=${!!recordingUrl}, from=${from}`);
 
   try {
-    // If voicemail is pending, skip any intro/follow-ups
+    // Skip if voicemail already handled
     if (callSid && pendingVoicemails.has(callSid)) {
-      console.log(`[call-status] CallSid=${callSid} is pending voicemail; skipping intro.`);
+      console.log(`[call-status] CallSid=${callSid} pending voicemail; skipping follow-up.`);
       return res.status(200).send('Voicemail pending, skipping intro');
     }
 
-    // Case 1: Busy or no-answer (missed call without voicemail)
-    if (['no-answer', 'busy'].includes(callStatus) && !recordingUrl) {
-      const introMsg = `G’day, this is ${process.env.TRADIE_NAME} from ${process.env.TRADES_BUSINESS}. Sorry I missed your call — can I grab your name and whether you’re after a quote, booking, or something else?`;
-      await client.messages.create({ body: introMsg, from: process.env.TWILIO_PHONE, to: from });
+    // Missed call without voicemail
+    if (['no-answer', 'busy', 'completed'].includes(callStatus) && !recordingUrl) {
+      // Prevent duplicate follow-ups
+      if (conversations[from]?.type !== 'missed_call_no_voicemail') {
+        const msg = `G’day, this is ${process.env.TRADIE_NAME} from ${process.env.TRADES_BUSINESS}. Sorry I missed your call — can I grab your name and what you’re after (quote/booking/other)?`;
+        await client.messages.create({ body: msg, from: process.env.TWILIO_PHONE, to: from });
 
-      conversations[from] = { step: 'awaiting_details', type: 'missed_call_no_voicemail', tradie_notified: false };
+        conversations[from] = { step: 'awaiting_details', type: 'missed_call_no_voicemail', tradie_notified: false };
 
-      await client.messages.create({
-        body: `⚠️ Missed call (no-answer/busy) from ${from}. Assistant sent initial follow-up.`,
-        from: process.env.TWILIO_PHONE,
-        to: tradieNumber
-      });
+        await client.messages.create({
+          body: `⚠️ Missed call from ${from}. Assistant sent follow-up.`,
+          from: process.env.TWILIO_PHONE,
+          to: tradieNumber
+        });
 
-      await supabase.from('messages').insert([{
-        user_id: 'e0a6c24f-8ecf-42fc-b240-7d3e8350e543',
-        from_number: from,
-        type: 'missed_call_no_voicemail',
-        content: '[No message left]',
-        created_at: new Date().toISOString()
-      }]);
-
-      console.log(`✅ Missed call (no voicemail) handled for ${from}`);
+        await supabase.from('messages').insert([{
+          user_id: 'e0a6c24f-8ecf-42fc-b240-7d3e8350e543',
+          from_number: from,
+          type: 'missed_call_no_voicemail',
+          content: '[No voicemail]',
+          created_at: new Date().toISOString()
+        }]);
+        console.log(`✅ Missed call handled for ${from}`);
+      }
     }
 
-    // Case 2: Completed call with recording → mark pending voicemail
+    // Completed call with recording → mark pending voicemail
     else if (callStatus === 'completed' && recordingUrl) {
       if (callSid) pendingVoicemails.add(callSid);
-      console.log(`[call-status] CallSid=${callSid} has recording. Marked as pending voicemail.`);
-    }
-
-    // Case 3: Completed call without recording → real hangup/no voicemail
-    else if (callStatus === 'completed' && !recordingUrl) {
-      const followUpMsg = `Hi, it’s ${process.env.TRADIE_NAME} from ${process.env.TRADES_BUSINESS}. Looks like I missed your call — can I grab your name and what you’re after (quote, booking, or something else)?`;
-      await client.messages.create({ body: followUpMsg, from: process.env.TWILIO_PHONE, to: from });
-
-      conversations[from] = { step: 'awaiting_details', type: 'missed_call_no_voicemail', tradie_notified: false };
-
-      await client.messages.create({
-        body: `⚠️ Missed call (no voicemail) from ${from}. Assistant followed up.`,
-        from: process.env.TWILIO_PHONE,
-        to: tradieNumber
-      });
-
-      await supabase.from('messages').insert([{
-        user_id: 'e0a6c24f-8ecf-42fc-b240-7d3e8350e543',
-        from_number: from,
-        type: 'missed_call_no_voicemail',
-        content: '[No voicemail]',
-        created_at: new Date().toISOString()
-      }]);
-
-      console.log(`✅ Missed call (no voicemail) handled for ${from}`);
+      console.log(`[call-status] CallSid=${callSid} has recording; marked pending voicemail`);
     }
 
   } catch (err) {
-    console.error('❌ Error handling call-status:', err.message);
+    console.error('❌ Error in call-status:', err.message);
   }
 
   res.status(200).send('Call status processed');
 });
 
-// ================= Voicemail handler =================
+// ================= Single Voicemail Endpoint =================
 app.post('/voicemail', async (req, res) => {
   const { RecordingUrl: recordingUrlRaw, From: rawFrom, CallSid: callSid } = req.body;
   const from = formatPhone(rawFrom);
@@ -300,7 +276,7 @@ app.post('/voicemail', async (req, res) => {
   console.log(`[voicemail] CallSid=${callSid} from=${from} recordingUrl=${!!recordingUrl}`);
 
   try {
-    // Clear pending voicemail flag so no intro is sent in call-status
+    // Clear pending voicemail
     if (callSid && pendingVoicemails.has(callSid)) {
       pendingVoicemails.delete(callSid);
       console.log(`[voicemail] Cleared pendingVoicemails for CallSid=${callSid}`);
@@ -308,117 +284,55 @@ app.post('/voicemail', async (req, res) => {
 
     // Transcribe voicemail
     let transcription = '[Unavailable]';
-    try {
-      transcription = await transcribeRecording(recordingUrl);
-    } catch (err) {
-      console.error('❌ Transcription failed:', err.message);
-    }
+    try { transcription = await transcribeRecording(recordingUrl); }
+    catch (err) { console.error('❌ Transcription failed:', err.message); }
 
-    // Save conversation state as voicemail
-    conversations[from] = { step: 'awaiting_details', transcription, type: 'voicemail' };
+    // Prevent duplicate AI follow-ups
+    if (conversations[from]?.type !== 'voicemail') {
+      conversations[from] = { step: 'awaiting_details', transcription, type: 'voicemail' };
 
-    // Notify tradie
-    await client.messages.create({
-      body: `🎙️ Voicemail from ${from}: "${transcription}"`,
-      from: process.env.TWILIO_PHONE,
-      to: tradieNumber
-    });
+      // Notify tradie
+      await client.messages.create({
+        body: `🎙️ Voicemail from ${from}: "${transcription}"`,
+        from: process.env.TWILIO_PHONE,
+        to: tradieNumber
+      });
 
-    await supabase.from('messages').insert([{
-      user_id: 'e0a6c24f-8ecf-42fc-b240-7d3e8350e543',
-      from_number: from,
-      type: 'voicemail',
-      transcription,
-      created_at: new Date().toISOString()
-    }]);
+      await supabase.from('messages').insert([{
+        user_id: 'e0a6c24f-8ecf-42fc-b240-7d3e8350e543',
+        from_number: from,
+        type: 'voicemail',
+        transcription,
+        created_at: new Date().toISOString()
+      }]);
 
-    // Generate AI follow-up to customer
-    const gptResp = await openai.chat.completions.create({
-      model: 'gpt-3.5-turbo',
-      messages: [
-        { role: 'system', content: 'You are a concise Aussie tradie assistant. Send one follow-up SMS asking for customer name and intent (quote/booking/other). Keep it short and friendly.' },
-        { role: 'user', content: `Transcription of voicemail: "${transcription}"` }
-      ]
-    });
-
-    const aiReply = gptResp.choices[0].message.content.trim();
-    if (aiReply && isValidAUSMobile(from)) {
-      await client.messages.create({ body: aiReply, from: process.env.TWILIO_PHONE, to: from });
-    }
-
-    console.log(`✅ Voicemail processed & AI follow-up sent for ${from}`);
-    res.status(200).send('Voicemail processed with AI follow-up');
-
-  } catch (err) {
-    console.error('❌ Voicemail handling failed:', err.message);
-    res.status(500).send('Failed voicemail handling');
-  }
-});
-
-// ================= Voicemail callback with AI follow-up =================
-app.post('/voicemail', async (req, res) => {
-  const recordingUrl = req.body.RecordingUrl ? `${req.body.RecordingUrl}.mp3` : '';
-  const from = formatPhone(req.body.From || '');
-  const tradieNumber = process.env.TRADIE_PHONE_NUMBER;
-  const callSid = req.body.CallSid;
-
-  if (!from) return res.status(400).send('Missing caller number');
-
-  console.log(`[voicemail] CallSid=${callSid} from=${from} recordingUrl=${!!recordingUrl}`);
-
-  // If we previously marked this call as pending voicemail, remove it now so call-status won't attempt an intro later
-  if (callSid && pendingVoicemails.has(callSid)) {
-    pendingVoicemails.delete(callSid);
-    console.log(`[voicemail] Cleared pendingVoicemails for CallSid=${callSid}`);
-  }
-
-  let transcription = '[Unavailable]';
-  try {
-    transcription = await transcribeRecording(recordingUrl);
-  } catch (err) {
-    console.error('❌ Transcription failed:', err.message);
-  }
-
-  // Store conversation state as voicemail
-  conversations[from] = { step: 'awaiting_details', transcription, type: 'voicemail' };
-
-  try {
-    // Notify tradie via SMS
-    await client.messages.create({
-      body: `🎙️ Voicemail from ${from}: "${transcription}"`,
-      from: process.env.TWILIO_PHONE,
-      to: tradieNumber
-    });
-
-    await supabase.from('messages').insert([{
-      user_id: 'e0a6c24f-8ecf-42fc-b240-7d3e8350e543',
-      from_number: from,
-      type: 'voicemail',
-      transcription,
-      created_at: new Date().toISOString()
-    }]);
-
-    // Generate AI follow-up SMS
-    const gptResp = await openai.chat.completions.create({
-      model: 'gpt-3.5-turbo',
-      messages: [
-        { role: 'system', content: `
+      // AI follow-up
+      try {
+        const gptResp = await openai.chat.completions.create({
+          model: 'gpt-3.5-turbo',
+          messages: [
+            { role: 'system', content: `
 You are a concise Aussie tradie assistant.
 Send one follow-up SMS asking for customer name and intent (quote/booking/other).
 Offer to schedule a call between 1-3pm.
 Keep message short and friendly.
-        `},
-        { role: 'user', content: `Transcription of voicemail: "${transcription}"` }
-      ]
-    });
+          ` },
+            { role: 'user', content: `Transcription of voicemail: "${transcription}"` }
+          ]
+        });
 
-    const aiReply = gptResp.choices[0].message.content.trim();
-    if (aiReply && isValidAUSMobile(from)) {
-      await client.messages.create({ body: aiReply, from: process.env.TWILIO_PHONE, to: from });
+        const aiReply = gptResp.choices[0].message.content.trim();
+        if (aiReply && isValidAUSMobile(from)) {
+          await client.messages.create({ body: aiReply, from: process.env.TWILIO_PHONE, to: from });
+        }
+      } catch (err) {
+        console.error('❌ AI follow-up failed (will not block voicemail storage):', err.message);
+      }
     }
 
     console.log(`✅ Voicemail processed & AI follow-up sent for ${from}`);
-    res.status(200).send('Voicemail processed with AI follow-up');
+    res.status(200).send('Voicemail processed');
+
   } catch (err) {
     console.error('❌ Voicemail handling failed:', err.message);
     res.status(500).send('Failed voicemail handling');

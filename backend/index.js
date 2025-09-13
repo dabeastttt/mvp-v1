@@ -227,7 +227,7 @@ app.post('/call-status', async (req, res) => {
     }
 
     // Missed call without voicemail
-    if (['no-answer', 'busy', 'completed'].includes(callStatus) && !recordingUrl) {
+    if (['no-answer', 'busy'].includes(callStatus) && !recordingUrl) {
       // Prevent duplicate follow-ups
       if (conversations[from]?.type !== 'missed_call_no_voicemail') {
         const msg = `G’day, this is ${process.env.TRADIE_NAME} from ${process.env.TRADES_BUSINESS}. Sorry I missed your call — can I grab your name and what you’re after (quote/booking/other)?`;
@@ -338,6 +338,37 @@ Keep message short and friendly.
     res.status(500).send('Failed voicemail handling');
   }
 });
+
+// ================= Voice handler =================
+app.post('/voice', (req, res) => {
+  const tradieNumber = process.env.TRADIE_PHONE_NUMBER;
+
+  // Create TwiML response
+  const response = new twilio.twiml.VoiceResponse();
+
+  // Say greeting to caller
+  response.say(
+    `Hi! Connecting you to ${process.env.TRADIE_NAME} from ${process.env.TRADES_BUSINESS}. Please wait...`,
+    { voice: 'alice' }
+  );
+
+  // Dial the tradie number
+  const dial = response.dial({ timeout: 25 }); // timeout in seconds before fallback
+  dial.number(tradieNumber);
+
+  // If call not answered, fallback to voicemail
+  response.say('The tradie is unavailable. Please leave a message after the beep.');
+  response.record({
+    maxLength: 60,
+    playBeep: true,
+    transcribe: true,
+    transcribeCallback: process.env.BASE_URL + '/voicemail',
+  });
+  response.hangup();
+
+  res.type('text/xml').send(response.toString());
+});
+
 
 // ================= SMS webhook =================
 app.post('/sms', (req, res) => {

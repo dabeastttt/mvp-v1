@@ -213,10 +213,10 @@ app.post('/register', async (req, res) => {
 // call status 
 
 // ================= Call-status handler =================
-// ===== /call-status handler =====
 app.post('/call-status', async (req, res) => {
   const { CallStatus, From: rawFrom, CallSid } = req.body;
   const from = formatPhone(rawFrom);
+  const tradieNumber = process.env.TRADIE_PHONE_NUMBER;
 
   if (!from) return res.status(400).send('Missing caller number');
 
@@ -224,22 +224,7 @@ app.post('/call-status', async (req, res) => {
 
   const convo = conversations[from];
 
-  // Skip sending intro if voicemail is pending for this call
-  if (pendingVoicemails.has(CallSid)) {
-    console.log(`⏳ Voicemail pending for CallSid=${CallSid}, skipping missed call SMS`);
-    return res.status(200).send('Voicemail pending, call-status skipped');
-  }
-
   try {
-    // Case 0: Voicemail will arrive → mark pending and skip intro
-    if (CallStatus === 'completed' && RecordingUrl) {
-      if (CallSid) {
-        pendingVoicemails.add(CallSid);
-        console.log(`[call-status] Pending voicemail marked for CallSid=${CallSid}`);
-      }
-      return res.status(200).send('Call status processed (voicemail pending)');
-    }
-
     // Case 1: Busy or no-answer → missed call intro
     if (['no-answer', 'busy'].includes(CallStatus)) {
       if (!convo || (convo.type !== 'voicemail' && convo.step !== 'voicemail_followup_sent')) {
@@ -266,14 +251,8 @@ app.post('/call-status', async (req, res) => {
       }
     }
 
-    // Case 2: Completed call with no voicemail → missed call intro
-    else if (CallStatus === 'completed' && !RecordingUrl) {
-      // Skip if voicemail is pending
-      if (CallSid && pendingVoicemails.has(CallSid)) {
-        console.log(`[call-status] CallSid=${CallSid} has pending voicemail, skipping intro.`);
-        return res.status(200).send('Voicemail pending, no intro sent');
-      }
-
+    // Case 2: Completed call → missed call intro only if no voicemail yet
+    else if (CallStatus === 'completed') {
       if (!convo || (convo.step !== 'voicemail_followup_sent' && convo.step !== 'awaiting_details')) {
         const followUpMsg = `Hi, it’s ${process.env.TRADIE_NAME} from ${process.env.TRADES_BUSINESS}. Looks like I missed your call — can I grab your name and what you’re after (quote, booking, or something else)?`;
         await client.messages.create({ body: followUpMsg, from: process.env.TWILIO_PHONE, to: from });
@@ -309,23 +288,16 @@ app.post('/call-status', async (req, res) => {
 
 // ===== /voice handler =====
 app.post('/voice', (req, res) => {
-  const response = new twilio.twiml.VoiceResponse();
-  response.say("Hi! The tradie is unavailable. Leave a message after the beep.");
-
-  const record = response.record({
-    maxLength: 60,
-    playBeep: true,
-    transcribe: true,
-    transcribeCallback: process.env.BASE_URL + '/voicemail'
-  });
-
-  // Only mark as pending if recording starts
-  record.on('recording', (callSid) => {
-    pendingVoicemails.add(callSid);
-  });
-
-  response.hangup();
-  res.type('text/xml').send(response.toString());
+    const response = new twilio.twiml.VoiceResponse();
+    response.say("Hi! The tradie is unavailable. Leave a message after the beep.");
+    response.record({
+        maxLength: 60,
+        playBeep: true,
+        transcribe: true,
+        transcribeCallback: process.env.BASE_URL + '/voicemail'
+    });
+    response.hangup();
+    res.type('text/xml').send(response.toString());
 });
 
 
@@ -362,14 +334,23 @@ async function transcribeRecording(url) {
 // ================= Voicemail callback with AI follow-up =================
 app.post('/voicemail', async (req, res) => {
   const { CallSid } = req.body;
-  if (CallSid && req.body.RecordingUrl) pendingVoicemails.add(CallSid); // mark as pending only if voicemail exists
   const recordingUrl = req.body.RecordingUrl ? `${req.body.RecordingUrl}.mp3` : '';
   const from = formatPhone(req.body.From || '');
   const tradieNumber = process.env.TRADIE_PHONE_NUMBER;
 
   if (!from) return res.status(400).send('Missing caller number');
 
-  console.log(`[voicemail] CallSid=${req.body.CallSid} from=${from} recordingUrl=${!!recordingUrl}`);
+  console.log(`[voicemail] CallSid=${CallSid} from=${from} recordingUrl=${!!recordingUrl}`);
+
+  // Remove from pending voicemails
+  if (CallSid && pendingVoicemails.has(CallSid)) pendingVoicemails.delete(CallSid);
+
+  // Skip if we already handled a voicemail follow-up for this caller
+  const convo = conversations[from];
+  if (convo?.step === 'voicemail_followup_sent') {
+    console.log(`[voicemail] Already handled voicemail follow-up for ${from}, skipping.`);
+    return res.status(200).send('Voicemail already handled');
+  }
 
   let transcription = '[Unavailable]';
   try {
@@ -378,7 +359,7 @@ app.post('/voicemail', async (req, res) => {
     console.error('❌ Transcription failed:', err.message);
   }
 
-  // Store conversation state and mark that AI follow-up has been sent
+  // Mark conversation state
   conversations[from] = { 
     step: 'voicemail_followup_sent',
     transcription,
@@ -402,7 +383,7 @@ app.post('/voicemail', async (req, res) => {
       created_at: new Date().toISOString()
     }]);
 
-    // Send AI follow-up
+    // Send AI follow-up only once
     const gptResp = await openai.chat.completions.create({
       model: 'gpt-3.5-turbo',
       messages: [

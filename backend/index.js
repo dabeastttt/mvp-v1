@@ -218,49 +218,49 @@ app.post('/call-status', async (req, res) => {
 
   if (!from) return res.status(400).send('Missing caller number');
 
-  console.log(`[call-status] status=${CallStatus} from=${from} CallSid=${CallSid}`);
+  console.log(`[call-status] status=${CallStatus} from=${from} CallSid=${CallSid} RecordingUrl=${RecordingUrl || 'none'}`);
 
   const convo = conversations[from];
 
   try {
-    // 1️⃣ Completed call with voicemail → mark pending, skip AI follow-up
-    if (CallStatus === 'completed' && RecordingUrl && CallSid) {
+    // 1️⃣ Completed call with actual voicemail → mark pending, skip AI follow-up
+    if (CallStatus === 'completed' && CallSid && RecordingUrl) {
       pendingVoicemails.add(CallSid);
       console.log(`[call-status] Pending voicemail for CallSid=${CallSid}, skipping AI follow-up`);
       return res.status(200).send('Voicemail pending, AI follow-up skipped');
     }
 
-    // 2️⃣ Completed call with no voicemail OR hang up before voicemail → send AI follow-up
-    if (CallStatus === 'completed' && (!RecordingUrl || !CallSid || !pendingVoicemails.has(CallSid))) {
-      if (!convo || convo.step !== 'voicemail_followup_sent') {
-        const transcription = '[No voicemail left]';
-        conversations[from] = { step: 'voicemail_followup_sent', type: 'missed_call_no_voicemail', transcription, tradie_notified: false };
+    // 2️⃣ Completed call without voicemail or caller hung up → send AI follow-up
+    if (CallStatus === 'completed' && (!RecordingUrl || RecordingUrl.trim() === '') && (!convo || convo.step !== 'voicemail_followup_sent')) {
+      const transcription = '[No voicemail left]';
+      conversations[from] = { step: 'voicemail_followup_sent', type: 'missed_call_no_voicemail', transcription, tradie_notified: false };
 
-        // Notify tradie
-        await client.messages.create({
-          body: `⚠️ Missed call from ${from}. Admin sent follow-up notification.`,
-          from: process.env.TWILIO_PHONE,
-          to: tradieNumber
-        });
+      // Notify tradie
+      await client.messages.create({
+        body: `⚠️ Missed call from ${from}. Admin sent follow-up notification.`,
+        from: process.env.TWILIO_PHONE,
+        to: tradieNumber
+      });
 
-        // AI follow-up to customer
-        const gptResp = await openai.chat.completions.create({
-          model: 'gpt-3.5-turbo',
-          messages: [
-            { role: 'system', content: 'You are a concise Aussie tradie assistant. Ask for name and intent (quote/booking/other) if they missed the call.' },
-            { role: 'user', content: `Transcription: "${transcription}"` }
-          ]
-        });
-        const aiReply = gptResp.choices[0].message.content.trim();
-        if (aiReply && isValidAUSMobile(from)) {
-          await client.messages.create({ body: aiReply, from: process.env.TWILIO_PHONE, to: from });
-        }
+      // AI follow-up to customer
+      const gptResp = await openai.chat.completions.create({
+        model: 'gpt-3.5-turbo',
+        messages: [
+          { role: 'system', content: 'You are a concise Aussie tradie assistant. Ask for name and intent (quote/booking/other) if they missed the call.' },
+          { role: 'user', content: `Transcription: "${transcription}"` }
+        ]
+      });
 
-        console.log(`✅ Completed/no voicemail AI follow-up sent for ${from}`);
+      const aiReply = gptResp.choices[0].message.content.trim();
+      if (aiReply && isValidAUSMobile(from)) {
+        await client.messages.create({ body: aiReply, from: process.env.TWILIO_PHONE, to: from });
       }
+
+      console.log(`✅ Completed/no voicemail AI follow-up sent for ${from}`);
+      return res.status(200).send('AI follow-up sent for completed/no voicemail');
     }
 
-    // 3️⃣ Busy or no-answer → same logic
+    // 3️⃣ Busy or no-answer → same logic as completed without voicemail
     if (['no-answer', 'busy'].includes(CallStatus) && (!convo || convo.step !== 'voicemail_followup_sent')) {
       const transcription = '[No voicemail left]';
       conversations[from] = { step: 'voicemail_followup_sent', type: 'missed_call_no_voicemail', transcription, tradie_notified: false };
@@ -280,12 +280,14 @@ app.post('/call-status', async (req, res) => {
           { role: 'user', content: `Transcription: "${transcription}"` }
         ]
       });
+
       const aiReply = gptResp.choices[0].message.content.trim();
       if (aiReply && isValidAUSMobile(from)) {
         await client.messages.create({ body: aiReply, from: process.env.TWILIO_PHONE, to: from });
       }
 
       console.log(`✅ Busy/no-answer AI follow-up sent for ${from}`);
+      return res.status(200).send('AI follow-up sent for busy/no-answer');
     }
 
   } catch (err) {
@@ -294,6 +296,7 @@ app.post('/call-status', async (req, res) => {
 
   res.status(200).send('Call status processed');
 });
+
 
 // ===== /voice handler =====
 app.post('/voice', (req, res) => {

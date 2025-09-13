@@ -224,11 +224,10 @@ app.post('/call-status', async (req, res) => {
   console.log(`[call-status] status=${CallStatus} from=${from} CallSid=${CallSid} RecordingUrl=${RecordingUrl || 'none'}`);
 
   const convo = conversations[from] || {};
-  // Track follow-up per CallSid
   if (!convo.handledCalls) convo.handledCalls = new Set();
 
   try {
-    // 1️⃣ Voicemail detected → mark CallSid, send AI follow-up only once
+    // 1️⃣ Completed call with voicemail (Twilio might not provide RecordingUrl immediately)
     if (CallStatus === 'completed' && RecordingUrl && RecordingUrl.trim() !== '') {
       pendingVoicemails.add(CallSid);
       if (pendingNoVoicemail.has(CallSid)) {
@@ -238,36 +237,14 @@ app.post('/call-status', async (req, res) => {
 
       if (!convo.handledCalls.has(CallSid)) {
         convo.handledCalls.add(CallSid);
-
-        // AI follow-up
-        const transcription = '[Voicemail left]';
-        conversations[from] = { ...convo, step: 'voicemail_followup_sent' };
-
-        await client.messages.create({
-          body: `🎙️ Voicemail from ${from}`,
-          from: process.env.TWILIO_PHONE,
-          to: tradieNumber
-        });
-
-        const gptResp = await openai.chat.completions.create({
-          model: 'gpt-3.5-turbo',
-          messages: [
-            { role: 'system', content: 'You are a concise Aussie tradie assistant. Ask for name and intent (quote/booking/other).' },
-            { role: 'user', content: `Transcription: "${transcription}"` }
-          ]
-        });
-
-        const aiReply = gptResp.choices[0].message.content.trim();
-        if (aiReply && isValidAUSMobile(from)) {
-          await client.messages.create({ body: aiReply, from: process.env.TWILIO_PHONE, to: from });
-        }
+        conversations[from] = { ...convo, step: 'waiting_for_voicemail' };
+        console.log(`[call-status] Voicemail detected for ${from}, waiting for transcription...`);
       }
 
-      console.log(`[call-status] Voicemail detected for ${from}, AI follow-up sent once.`);
-      return res.status(200).send('Voicemail detected, AI follow-up sent once');
+      return res.status(200).send('Voicemail detected, waiting for transcription');
     }
 
-    // 2️⃣ Completed call with no voicemail → schedule AI follow-up once
+    // 2️⃣ Completed call with no voicemail → schedule AI follow-up after short wait
     if (CallStatus === 'completed' && (!RecordingUrl || RecordingUrl.trim() === '')) {
       if (pendingNoVoicemail.has(CallSid) || convo.handledCalls.has(CallSid)) {
         return res.status(200).send('Already scheduled follow-up');
@@ -276,8 +253,8 @@ app.post('/call-status', async (req, res) => {
       const timeout = setTimeout(async () => {
         if (!pendingVoicemails.has(CallSid)) {
           convo.handledCalls.add(CallSid);
-          const transcription = '[No voicemail left]';
           conversations[from] = { ...convo, step: 'voicemail_followup_sent' };
+          const transcription = '[No voicemail left]';
 
           // Notify tradie
           await client.messages.create({
@@ -303,25 +280,28 @@ app.post('/call-status', async (req, res) => {
           console.log(`✅ AI follow-up sent for missed call without voicemail: ${from}`);
         }
         pendingNoVoicemail.delete(CallSid);
-      }, 10000);
+      }, 15000); // wait 15s for voicemail to arrive
 
       pendingNoVoicemail.set(CallSid, timeout);
       console.log(`[call-status] Scheduled wait for voicemail for ${from}`);
       return res.status(200).send('Scheduled wait for voicemail');
     }
 
-    // 3️⃣ Busy/no-answer → immediate AI follow-up once
+    // 3️⃣ Busy/no-answer → immediate AI follow-up
     if (['no-answer', 'busy'].includes(CallStatus) && !convo.handledCalls.has(CallSid)) {
       convo.handledCalls.add(CallSid);
       conversations[from] = { ...convo, step: 'voicemail_followup_sent' };
 
       const transcription = '[No voicemail left]';
+
+      // Notify tradie
       await client.messages.create({
         body: `⚠️ Missed call from ${from}. Admin sent follow-up notification.`,
         from: process.env.TWILIO_PHONE,
         to: tradieNumber
       });
 
+      // AI follow-up to customer
       const gptResp = await openai.chat.completions.create({
         model: 'gpt-3.5-turbo',
         messages: [
@@ -345,7 +325,6 @@ app.post('/call-status', async (req, res) => {
 
   res.status(200).send('Call status processed');
 });
-
 
 
 // ===== /voice handler =====

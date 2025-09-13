@@ -311,15 +311,18 @@ app.post('/call-status', async (req, res) => {
 app.post('/voice', (req, res) => {
   const response = new twilio.twiml.VoiceResponse();
   response.say("Hi! The tradie is unavailable. Leave a message after the beep.");
-  response.record({
+
+  const record = response.record({
     maxLength: 60,
     playBeep: true,
     transcribe: true,
     transcribeCallback: process.env.BASE_URL + '/voicemail'
   });
 
-  // Track CallSid as pending voicemail
-  if (req.body.CallSid) pendingVoicemails.add(req.body.CallSid);
+  // Only mark as pending if recording starts
+  record.on('recording', (callSid) => {
+    pendingVoicemails.add(callSid);
+  });
 
   response.hangup();
   res.type('text/xml').send(response.toString());
@@ -359,7 +362,7 @@ async function transcribeRecording(url) {
 // ================= Voicemail callback with AI follow-up =================
 app.post('/voicemail', async (req, res) => {
   const { CallSid } = req.body;
-  if (CallSid) pendingVoicemails.delete(CallSid); // remove from pending
+  if (CallSid && req.body.RecordingUrl) pendingVoicemails.add(CallSid); // mark as pending only if voicemail exists
   const recordingUrl = req.body.RecordingUrl ? `${req.body.RecordingUrl}.mp3` : '';
   const from = formatPhone(req.body.From || '');
   const tradieNumber = process.env.TRADIE_PHONE_NUMBER;

@@ -355,13 +355,13 @@ app.post('/voice', (req, res) => {
   response.record({
     maxLength: 60,
     playBeep: true,
-    recordingStatusCallback: process.env.BASE_URL + '/voicemail',
-    recordingStatusCallbackEvent: ['completed']
-    // Remove 'transcribe: true' — we'll do transcription manually
+    transcribe: true, // triggers Twilio transcription
+    transcribeCallback: process.env.BASE_URL + '/voicemail'
   });
   response.hangup();
   res.type('text/xml').send(response.toString());
 });
+
 
 
 

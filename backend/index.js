@@ -213,16 +213,22 @@ app.post('/register', async (req, res) => {
 // call status 
 
 // ================= Call-status handler =================
+// ===== /call-status handler =====
 app.post('/call-status', async (req, res) => {
-  const { CallStatus, RecordingUrl, CallSid, From: rawFrom } = req.body;
+  const { CallStatus, From: rawFrom, CallSid } = req.body;
   const from = formatPhone(rawFrom);
-  const tradieNumber = process.env.TRADIE_PHONE_NUMBER;
 
   if (!from) return res.status(400).send('Missing caller number');
 
-  console.log(`[call-status] status=${CallStatus} from=${from} recordingUrl=${!!RecordingUrl} CallSid=${CallSid}`);
+  console.log(`[call-status] status=${CallStatus} from=${from} CallSid=${CallSid}`);
 
   const convo = conversations[from];
+
+  // Skip sending intro if voicemail is pending for this call
+  if (pendingVoicemails.has(CallSid)) {
+    console.log(`⏳ Voicemail pending for CallSid=${CallSid}, skipping missed call SMS`);
+    return res.status(200).send('Voicemail pending, call-status skipped');
+  }
 
   try {
     // Case 0: Voicemail will arrive → mark pending and skip intro
@@ -301,19 +307,24 @@ app.post('/call-status', async (req, res) => {
   res.status(200).send('Call status processed');
 });
 
-// ================= Voice handler =================
+// ===== /voice handler =====
 app.post('/voice', (req, res) => {
-    const response = new twilio.twiml.VoiceResponse();
-    response.say("Hi! The tradie is unavailable. Leave a message after the beep.");
-    response.record({
-        maxLength: 60,
-        playBeep: true,
-        transcribe: true,
-        transcribeCallback: process.env.BASE_URL + '/voicemail'
-    });
-    response.hangup();
-    res.type('text/xml').send(response.toString());
+  const response = new twilio.twiml.VoiceResponse();
+  response.say("Hi! The tradie is unavailable. Leave a message after the beep.");
+  response.record({
+    maxLength: 60,
+    playBeep: true,
+    transcribe: true,
+    transcribeCallback: process.env.BASE_URL + '/voicemail'
+  });
+
+  // Track CallSid as pending voicemail
+  if (req.body.CallSid) pendingVoicemails.add(req.body.CallSid);
+
+  response.hangup();
+  res.type('text/xml').send(response.toString());
 });
+
 
 // ================= Transcribe helper =================
 async function transcribeRecording(url) {
@@ -347,6 +358,8 @@ async function transcribeRecording(url) {
 
 // ================= Voicemail callback with AI follow-up =================
 app.post('/voicemail', async (req, res) => {
+  const { CallSid } = req.body;
+  if (CallSid) pendingVoicemails.delete(CallSid); // remove from pending
   const recordingUrl = req.body.RecordingUrl ? `${req.body.RecordingUrl}.mp3` : '';
   const from = formatPhone(req.body.From || '');
   const tradieNumber = process.env.TRADIE_PHONE_NUMBER;

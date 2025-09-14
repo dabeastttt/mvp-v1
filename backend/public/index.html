@@ -5,21 +5,38 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>TradeAssist A.I Signup</title>
   <script src="https://js.stripe.com/v3/"></script>
-  <style>
-    * {
-      box-sizing: border-box;
-    }
 
-html, body {
-  margin: 0;
-  padding: 0;
-  min-height: 100%;   /* use min-height so it grows with content */
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-  background: #0A0A0A;
-  color: #FFFFFF;
-  overflow-x: hidden; /* only hide sideways scroll */
-  overflow-y: auto;   /* allow vertical scroll */
-}
+  <!-- Favicon -->
+  <link rel="icon" href="/icon-48.png" type="image/png">
+
+  <!-- Apple Touch Icons -->
+  <link rel="apple-touch-icon" sizes="48x48" href="/icon-48.png">
+  <link rel="apple-touch-icon" sizes="192x192" href="/icon-192.png">
+  <link rel="apple-touch-icon" sizes="512x512" href="/icon-512.png">
+
+  <!-- PWA Manifest -->
+  <link rel="manifest" href="/manifest.json">
+
+  <!-- Theme color for browser -->
+  <meta name="theme-color" content="#FF6B00">
+
+  <!-- Optional: iOS Safari -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+  <style>
+    * { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      min-height: 100%;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #0A0A0A;
+      color: #FFFFFF;
+      overflow-x: hidden;
+      overflow-y: auto;
+    }
 
     canvas {
       position: fixed;
@@ -32,21 +49,21 @@ html, body {
       display: block;
     }
 
-main {
-  position: relative;
-  z-index: 10;
-  max-width: 340px;         /* ⬅️ narrower */
-  height: auto;             /* ⬅️ let it grow with content */
-  overflow-y: visible;      /* ⬅️ remove scroll unless needed */
-  overflow-x: hidden;
-  margin: 2rem auto;
-  background: rgba(30, 30, 30, 0.1);
-  border-radius: 16px;
-  box-shadow: 0 0 20px #FF914D88;
-  padding: 1.5rem 1.5rem;    /* ⬅️ tighter padding */
-  backdrop-filter: blur(2.5px);
-  -webkit-backdrop-filter: blur(10px);
-}
+    main {
+      position: relative;
+      z-index: 10;
+      max-width: 340px;
+      height: auto;
+      overflow-y: visible;
+      overflow-x: hidden;
+      margin: 2rem auto;
+      background: rgba(30, 30, 30, 0.1);
+      border-radius: 16px;
+      box-shadow: 0 0 20px #FF914D88;
+      padding: 1.5rem 1.5rem;
+      backdrop-filter: blur(2.5px);
+      -webkit-backdrop-filter: blur(10px);
+    }
 
     .glow-icon {
       display: block;
@@ -58,12 +75,8 @@ main {
     }
 
     @keyframes glowPulse {
-      0%, 100% {
-        filter: drop-shadow(0 0 8px #FF6B00AA);
-      }
-      50% {
-        filter: drop-shadow(0 0 16px #FF914DCC);
-      }
+      0%, 100% { filter: drop-shadow(0 0 8px #FF6B00AA); }
+      50% { filter: drop-shadow(0 0 16px #FF914DCC); }
     }
 
     h1 {
@@ -83,12 +96,7 @@ main {
       color: #FF914D;
     }
 
-    label {
-      display: block;
-      margin-bottom: 0.4rem;
-      font-weight: 600;
-      color: #FF914D;
-    }
+    label { display: block; margin-bottom: 0.4rem; font-weight: 600; color: #FF914D; }
 
     input[type="text"],
     input[type="email"],
@@ -153,10 +161,7 @@ main {
     }
 
     @media (max-width: 480px) {
-      main {
-        margin: 1.5rem 1rem;
-        padding: 2rem 1.5rem;
-      }
+      main { margin: 1.5rem 1rem; padding: 2rem 1.5rem; }
     }
   </style>
 </head>
@@ -194,11 +199,12 @@ main {
     <label for="phone">Mobile Number</label>
     <input type="tel" id="phone" name="phone" placeholder="0400 000 000" pattern="[0-9\s\-+]+" required />
 
-    <label for="planSelect">Select Subscription Plan:</label>
-    <select id="planSelect" name="planSelect" required>
-      <option value="weekly">Weekly - $7 / week</option>
-      <option value="monthly">Monthly - $30 / month</option>
-    </select>
+  <label for="planSelect">Select Subscription Plan:</label>
+<select id="planSelect" name="planSelect" required>
+  <option value="weekly">Weekly - $7 / week (first week free)</option>
+  <option value="monthly">Monthly - $30 / month (first 7 days free)</option>
+</select>
+
 
     <button type="submit">ONBOARD YOUR 24/7 Receptionist</button>
   </form>

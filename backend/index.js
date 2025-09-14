@@ -8,6 +8,8 @@ const rateLimit = require('express-rate-limit');
 const fs = require('fs');
 const os = require('os');
 const { createClient } = require('@supabase/supabase-js');
+const ffmpeg = require('fluent-ffmpeg');
+
 
 
 // Supabase client
@@ -344,32 +346,28 @@ app.post('/voice', async (req, res) => {
   const response = new twilio.twiml.VoiceResponse();
 
   try {
-    const twilioNumber = req.body.To; // Twilio number receiving the call
+    const twilioNumber = req.body.To; // the number receiving the call
 
-    // Fetch the voicemail for the Twilio number
     const { data, error } = await supabase
       .from('tradies')
       .select('voicemail_url, name')
       .eq('twilio_number', twilioNumber)
       .single();
 
-    if (error) {
-      console.error("❌ Supabase error fetching voicemail_url for", twilioNumber, error.message);
-    }
+    if (error) console.error("❌ Supabase error:", error.message);
 
-    if (data && data.voicemail_url) {
-      console.log("✅ Playing custom voicemail for Twilio number:", twilioNumber);
-      response.play(data.voicemail_url);
-    } else {
-      console.log("⚠️ No voicemail found for Twilio number:", twilioNumber, "- using default greeting");
-      response.say("Hi! The tradie is unavailable. Leave a message after the beep.");
-    }
+if (data && data.voicemail_url) {
+  console.log("✅ Playing custom voicemail for Twilio number:", twilioNumber);
+  response.play(data.voicemail_url); // MP3
+} else {
+  response.say("Hi! The tradie is unavailable. Leave a message after the beep.");
+}
 
-    // Record the voicemail
+
     response.record({
       maxLength: 60,
       playBeep: true,
-      transcribe: true, // triggers Twilio transcription
+      transcribe: true,
       transcribeCallback: process.env.BASE_URL + '/voicemail'
     });
 
@@ -378,12 +376,7 @@ app.post('/voice', async (req, res) => {
   } catch (err) {
     console.error("❌ Error in /voice handler:", err.message);
     response.say("Hi! The tradie is unavailable. Leave a message after the beep.");
-    response.record({
-      maxLength: 60,
-      playBeep: true,
-      transcribe: true,
-      transcribeCallback: process.env.BASE_URL + '/voicemail'
-    });
+    response.record({ maxLength: 60, playBeep: true, transcribe: true, transcribeCallback: process.env.BASE_URL + '/voicemail' });
     response.hangup();
   }
 
@@ -398,36 +391,59 @@ app.post('/api/upload-voicemail', async (req, res) => {
     }
 
     const file = req.files.file;
-    const tradieNumber = process.env.TRADIE_PHONE_NUMBER;
+    const twilioNumber = req.body.twilio_number; // Pass the Twilio number from the client
 
-    // Make sure bucket exists (voicemails)
-    const bucketCheck = await supabase.storage.getBucket('voicemails');
-    if (!bucketCheck.data) {
-      return res.status(500).json({ error: "Voicemail bucket not found" });
+    if (!twilioNumber) {
+      return res.status(400).json({ error: "Twilio number is required" });
     }
 
-    // Upload the file
-    const { data: uploadData, error: uploadError } = await supabase.storage
-      .from('voicemails')
-      .upload(`${tradieNumber}/${Date.now()}-${file.name}`, file.data, {
-        contentType: file.mimetype,
-        upsert: true // overwrite if file exists
-      });
+    // Save temporary file
+    const tmpInput = path.join(os.tmpdir(), `input-${Date.now()}.webm`);
+    fs.writeFileSync(tmpInput, file.data);
+
+    const safePhone = twilioNumber.replace(/\+/g, '');
+    const tmpOutput = path.join(os.tmpdir(), `output-${Date.now()}.mp3`);
+
+    // Convert to MP3
+    await new Promise((resolve, reject) => {
+      ffmpeg(tmpInput)
+        .toFormat('mp3')
+        .save(tmpOutput)
+        .on('end', resolve)
+        .on('error', reject);
+    });
+
+    // Upload to Supabase
+    const fileBuffer = fs.readFileSync(tmpOutput);
+    const storagePath = `${safePhone}/${Date.now()}-voicemail.mp3`;
+
+   // Upload MP3
+const { data: uploadData, error: uploadError } = await supabase.storage
+  .from('voicemails')
+  .upload(storagePath, fs.readFileSync(tmpOutput), {
+    contentType: 'audio/mpeg',
+    upsert: true
+  });
 
     if (uploadError) throw uploadError;
 
-    // Build public URL
-    const voicemailUrl = `${process.env.SUPABASE_URL}/storage/v1/object/public/voicemails/${uploadData.path}`;
+    const voicemailUrl = `${process.env.SUPABASE_URL}/storage/v1/object/public/voicemails/${encodeURIComponent(uploadData.path)}`;
 
-    // Update tradie record in database
-    const { error: updateError } = await supabase
-      .from('tradies')
-      .update({ voicemail_url: voicemailUrl })
-      .eq('phone', tradieNumber);
+ // Update the tradie row to store the MP3 URL
+const { error: updateError } = await supabase
+  .from('tradies')
+  .update({ voicemail_url: voicemailUrl })
+  .eq('twilio_number', twilioNumber);
 
-    if (updateError) throw updateError;
+if (updateError) throw updateError;
+
+
+    // Clean up temp files
+    fs.unlinkSync(tmpInput);
+    fs.unlinkSync(tmpOutput);
 
     res.json({ url: voicemailUrl });
+
   } catch (err) {
     console.error("❌ Upload voicemail error:", err.message);
     res.status(500).json({ error: err.message });

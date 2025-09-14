@@ -6,13 +6,106 @@ app.get('/login', (req, res) => {
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>TradeAssist A.I — Login</title>
 <style>
-/* ... your CSS unchanged ... */
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background: #0A0A0A;
+  color: #FFFFFF;
+  overflow: hidden;
+}
+canvas {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+  display: block;
+  pointer-events: none;
+}
+main {
+  position: relative;
+  z-index: 10;
+  width: 90%;
+  max-width: 400px;
+  margin: 4rem auto;
+  background: rgba(30,30,30,0.25);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+  border-radius: 16px;
+  box-shadow: 0 0 20px #FF914D99;
+  padding: 2rem 1.5rem;
+  box-sizing: border-box;
+  text-align: center;
+}
+.glow-icon { width: 100px; height: 100px; margin-bottom: 1rem; filter: drop-shadow(0 0 12px #FF6B00); }
+h1 { margin-bottom: 1.5rem; text-shadow: 0 0 10px #FF914Dbb; color: #FF6B00; font-weight: 900; font-size: 1.8rem; }
+input[type="email"], input[type="password"] {
+  padding: 0.75rem 1rem;
+  border-radius: 10px;
+  border: 2px solid #FF6B00;
+  width: 100%;
+  margin-bottom: 1.2rem;
+  font-size: 1rem;
+  box-sizing: border-box;
+  background-color: #1E1E1E;
+  color: #FFFFFF;
+  box-shadow: 0 0 6px 2px #FF6B00;
+}
+input:focus {
+  outline: none;
+  border-color: #FF914D;
+  box-shadow: 0 0 10px 3px #FF914D;
+  background-color: #2a2a2a;
+}
+button {
+  width: 100%;
+  padding: 0.9rem;
+  font-size: 1.1rem;
+  font-weight: 700;
+  background: #FF6B00;
+  color: #0A0A0A;
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  box-shadow: 0 6px 14px #FF6B0088;
+  margin-top: 1rem;
+}
+button:hover {
+  background: #FF914D;
+  color: #FFFFFF;
+  box-shadow: 0 8px 18px #FF6B0099;
+}
+@media (max-width: 600px) {
+  main { margin: 2rem auto; padding: 1.2rem; }
+  .glow-icon { width: 80px; height: 80px; }
+  h1 { font-size: 1.5rem; }
+}
 </style>
 </head>
 <body>
 <canvas id="backgroundCanvas"></canvas>
 <main>
-  <!-- ... SVG + form unchanged ... -->
+  <svg class="glow-icon" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <linearGradient id="orangeBolt" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="#FF6B00" />
+        <stop offset="100%" stop-color="#FF914D" />
+      </linearGradient>
+    </defs>
+    <path d="M32 8c-11 0-20 9-20 20v4c0 2.2 1.8 4 4 4h32c2.2 0 4-1.8 4-4v-4c0-11-9-20-20-20z"
+          fill="url(#orangeBolt)" stroke="#FFFFFF" stroke-width="2"/>
+    <path d="M20 36v-4c0-6.6 5.4-12 12-12s12 5.4 12 12v4"
+          fill="none" stroke="#FFFFFF" stroke-width="2"/>
+  </svg>
+  <h1>Login to Dashboard</h1>
+  <form action="/dashboard/view" method="POST" autocomplete="off">
+    <input type="email" name="email" placeholder="Email Address" required />
+    <input type="password" name="password" placeholder="Password" required />
+    <button type="submit">Login</button>
+  </form>
 </main>
 
 <script>
@@ -57,7 +150,7 @@ function animate() {
     if (p.y<0||p.y>height) p.vy*=-1;
     ctx.beginPath();
     ctx.arc(p.x,p.y,p.radius,0,Math.PI*2);
-    ctx.fillStyle = `rgba(255,107,0,${p.alpha})`;
+    ctx.fillStyle = \`rgba(255,107,0,\${p.alpha})\`;
     ctx.fill();
   });
   for(let i=0;i<particles.length;i++){
@@ -67,7 +160,7 @@ function animate() {
       const dist = Math.sqrt(dx*dx+dy*dy);
       if(dist<110){
         ctx.beginPath();
-        ctx.strokeStyle = `rgba(255,107,0,${1 - dist/110})`;
+        ctx.strokeStyle = \`rgba(255,107,0,\${1 - dist/110})\`;
         ctx.lineWidth = 0.8;
         ctx.moveTo(particles[i].x, particles[i].y);
         ctx.lineTo(particles[j].x, particles[j].y);

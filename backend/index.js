@@ -344,33 +344,32 @@ app.post('/voice', async (req, res) => {
   const response = new twilio.twiml.VoiceResponse();
 
   try {
-    const tradieNumber = process.env.TRADIE_PHONE_NUMBER; // your test number
+    const twilioNumber = req.body.To; // Twilio number receiving the call
 
-    // Fetch voicemail URL for this tradie from Supabase
+    // Fetch the voicemail for the Twilio number
     const { data, error } = await supabase
       .from('tradies')
       .select('voicemail_url, name')
-      .eq('phone', tradieNumber)
+      .eq('twilio_number', twilioNumber)
       .single();
 
     if (error) {
-      console.error("❌ Supabase error fetching voicemail_url:", error.message);
+      console.error("❌ Supabase error fetching voicemail_url for", twilioNumber, error.message);
     }
 
     if (data && data.voicemail_url) {
-      // Play the custom voicemail from Supabase
-      console.log("✅ Playing custom voicemail:", data.voicemail_url);
+      console.log("✅ Playing custom voicemail for Twilio number:", twilioNumber);
       response.play(data.voicemail_url);
     } else {
-      // Fallback message
+      console.log("⚠️ No voicemail found for Twilio number:", twilioNumber, "- using default greeting");
       response.say("Hi! The tradie is unavailable. Leave a message after the beep.");
     }
 
-    // Record the voicemail (Twilio will save)
+    // Record the voicemail
     response.record({
       maxLength: 60,
       playBeep: true,
-      transcribe: true,
+      transcribe: true, // triggers Twilio transcription
       transcribeCallback: process.env.BASE_URL + '/voicemail'
     });
 

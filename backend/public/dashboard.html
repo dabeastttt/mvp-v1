@@ -149,6 +149,7 @@
 </main>
 
 <script>
+  // === Canvas Background ===
   const canvas = document.getElementById('backgroundCanvas');
   const ctx = canvas.getContext('2d');
   let width = window.innerWidth, height = window.innerHeight;
@@ -241,7 +242,7 @@
 
       const seenNumbers = new Set();
       const feedItems = messages.filter(m=>m.customer_name && m.customer_name!=='Unknown' && m.intent && m.intent!=='No intent' && m.from_number && m.from_number!=='No number')
-                                .filter(m=>{if(seenNumbers.has(m.from_number)) return false; seenNumbers.add(m.from_number); return true;})
+                                .filter(m=>{if(seenNumbers.has(m.from_number)) return false; seenNumbers.add(m.from_number); return true;} )
                                 .map(m=>{
                                   let typeLabel=''; 
                                   switch(m.type){
@@ -272,57 +273,78 @@
   refreshFeed();
 
   // === Voicemail Recording & Upload ===
-  let mediaRecorder, recordedChunks=[];
-  const recordBtn=document.getElementById('recordBtn');
-  const stopBtn=document.getElementById('stopBtn');
-  const uploadBtn=document.getElementById('uploadBtn');
-  const previewAudio=document.getElementById('voicemailPreview');
+  let mediaRecorder, recordedChunks = [];
+  const recordBtn = document.getElementById('recordBtn');
+  const stopBtn = document.getElementById('stopBtn');
+  const uploadBtn = document.getElementById('uploadBtn');
+  const previewAudio = document.getElementById('voicemailPreview');
 
-  (function attachVoicemailHandlers(){
-    if(!recordBtn||!stopBtn||!uploadBtn||!previewAudio) return;
+  (function attachVoicemailHandlers() {
+    if (!recordBtn || !stopBtn || !uploadBtn || !previewAudio) return;
 
-    recordBtn.addEventListener('click', async ()=>{
-      if(!navigator.mediaDevices?.getUserMedia){ return alert("Your browser doesn't support audio recording."); }
-      try{
-        const stream=await navigator.mediaDevices.getUserMedia({audio:true});
-        mediaRecorder=new MediaRecorder(stream);
-        recordedChunks=[];
+    recordBtn.addEventListener('click', async () => {
+      if (!navigator.mediaDevices?.getUserMedia) {
+        return alert("Your browser doesn't support audio recording.");
+      }
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
 
-        mediaRecorder.ondataavailable=e=>{ if(e.data.size>0) recordedChunks.push(e.data); };
-        mediaRecorder.onstop=()=>{
-          const blob=new Blob(recordedChunks,{type:'audio/webm'});
-          previewAudio.src=URL.createObjectURL(blob);
-          previewAudio.style.display='block';
-          uploadBtn.disabled=false;
+        // Try MP3 first
+        let options = { mimeType: 'audio/mpeg' };
+        if (!MediaRecorder.isTypeSupported('audio/mpeg')) {
+          console.warn('audio/mpeg not supported, falling back to webm');
+          options = { mimeType: 'audio/webm' };
+        }
+
+        mediaRecorder = new MediaRecorder(stream, options);
+        recordedChunks = [];
+
+        mediaRecorder.ondataavailable = e => { if (e.data.size > 0) recordedChunks.push(e.data); };
+        mediaRecorder.onstop = () => {
+          const blob = new Blob(recordedChunks, { type: options.mimeType });
+          previewAudio.src = URL.createObjectURL(blob);
+          previewAudio.style.display = 'block';
+          uploadBtn.disabled = false;
         };
 
         mediaRecorder.start();
-        recordBtn.disabled=true;
-        stopBtn.disabled=false;
-        uploadBtn.disabled=true;
-      }catch(err){ console.error(err); alert('Could not access microphone.'); }
+        recordBtn.disabled = true;
+        stopBtn.disabled = false;
+        uploadBtn.disabled = true;
+      } catch (err) {
+        console.error(err);
+        alert('Could not access microphone.');
+      }
     });
 
-    stopBtn.addEventListener('click', ()=>{ if(mediaRecorder?.state!=='inactive') mediaRecorder.stop(); recordBtn.disabled=false; stopBtn.disabled=true; });
+    stopBtn.addEventListener('click', () => {
+      if (mediaRecorder?.state !== 'inactive') mediaRecorder.stop();
+      recordBtn.disabled = false;
+      stopBtn.disabled = true;
+    });
 
-    uploadBtn.addEventListener('click', async ()=>{
-      if(!recordedChunks.length) return alert("No recording to upload.");
-      const blob=new Blob(recordedChunks,{type:'audio/webm'});
-      const formData=new FormData();
-      formData.append('file',blob,'voicemail.webm');
+    uploadBtn.addEventListener('click', async () => {
+      if (!recordedChunks.length) return alert("No recording to upload.");
 
-      // Auto-insert Twilio number here
-      const twilioNumber = window.twilioNumber || '+61483942405'; // replace with dynamic user number if available
+      const blob = new Blob(recordedChunks, { type: mediaRecorder.mimeType });
+      const formData = new FormData();
+      const filename = mediaRecorder.mimeType === 'audio/mpeg' ? 'voicemail.mp3' : 'voicemail.webm';
+      formData.append('file', blob, filename);
+
+      const twilioNumber = window.twilioNumber || '+61483942405';
       formData.append('twilio_number', twilioNumber);
 
-      try{
-        const res=await fetch('/api/upload-voicemail',{method:'POST',body:formData});
-        const data=await res.json();
-        if(data.url){
+      try {
+        const res = await fetch('/api/upload-voicemail', { method: 'POST', body: formData });
+        const data = await res.json();
+        if (data.url) {
           previewAudio.src = data.url;
           alert('✅ Voicemail uploaded successfully!');
-        }else alert('❌ Upload failed.');
-      }catch(err){ console.error(err); alert('❌ Error uploading voicemail.'); }
+        } else alert('❌ Upload failed.');
+      } catch (err) {
+        console.error(err);
+        alert('❌ Error uploading voicemail.');
+      }
     });
   })();
 
@@ -335,12 +357,8 @@
   }
 
   if('serviceWorker' in navigator){
-    window.addEventListener('load', ()=>{
-      navigator.serviceWorker.register('/sw.js').then(reg=>console.log('Service Worker registered:',reg))
-      .catch(err=>console.error('Service Worker registration failed:',err));
-    });
+    window.addEventListener('load', ()=>{navigator.serviceWorker.register('/sw.js').then(reg=>console.log('Service Worker registered:',reg)).catch(err=>console.error('Service Worker registration failed:',err));});
   }
 </script>
 </body>
 </html>
-

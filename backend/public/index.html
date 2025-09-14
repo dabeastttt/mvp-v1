@@ -6,27 +6,18 @@
   <title>TradeAssist A.I Signup</title>
   <script src="https://js.stripe.com/v3/"></script>
 
-  <!-- Favicon -->
+  <!-- Favicon + PWA -->
   <link rel="icon" href="/icon-48.png" type="image/png">
-
-  <!-- Apple Touch Icons -->
   <link rel="apple-touch-icon" sizes="48x48" href="/icon-48.png">
   <link rel="apple-touch-icon" sizes="192x192" href="/icon-192.png">
   <link rel="apple-touch-icon" sizes="512x512" href="/icon-512.png">
-
-  <!-- PWA Manifest -->
   <link rel="manifest" href="/manifest.json">
-
-  <!-- Theme color for browser -->
   <meta name="theme-color" content="#FF6B00">
-
-  <!-- Optional: iOS Safari -->
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
   <style>
     * { box-sizing: border-box; }
-
     html, body {
       margin: 0;
       padding: 0;
@@ -35,140 +26,123 @@
       background: #0A0A0A;
       color: #FFFFFF;
       overflow-x: hidden;
-      overflow-y: auto;
     }
-
     canvas {
       position: fixed;
-      top: 0;
-      left: 0;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
       z-index: 0;
-      width: 100%;
-      height: 100%;
       background: #0A0A0A;
       display: block;
+      pointer-events: none;
     }
-
     main {
       position: relative;
       z-index: 10;
-      max-width: 340px;
-      height: auto;
-      overflow-y: visible;
-      overflow-x: hidden;
+      max-width: 360px;
       margin: 2rem auto;
-      background: rgba(30, 30, 30, 0.1);
+      padding: 1.5rem;
+      background: rgba(30, 30, 30, 0.15);
       border-radius: 16px;
-      box-shadow: 0 0 20px #FF914D88;
-      padding: 1.5rem 1.5rem;
+      box-shadow: 0 0 20px #FF914D66;
       backdrop-filter: blur(2.5px);
-      -webkit-backdrop-filter: blur(10px);
     }
-
     .glow-icon {
       display: block;
-      margin: 0 auto 1.5rem auto;
-      width: 120px;
-      height: 120px;
-      filter: drop-shadow(0 0 12px #FF6B00CC);
+      margin: 0 auto 1.2rem auto;
+      width: 100px; height: 100px;
+      filter: drop-shadow(0 0 10px #FF6B00CC);
       animation: glowPulse 3s ease-in-out infinite;
     }
-
     @keyframes glowPulse {
-      0%, 100% { filter: drop-shadow(0 0 8px #FF6B00AA); }
-      50% { filter: drop-shadow(0 0 16px #FF914DCC); }
+      0%, 100% { filter: drop-shadow(0 0 6px #FF6B00AA); }
+      50% { filter: drop-shadow(0 0 14px #FF914DCC); }
     }
-
     h1 {
       font-weight: 900;
-      font-size: 2.6rem;
-      margin: 0 0 0.6rem;
+      font-size: 2rem;
+      margin: 0 0 0.5rem;
       text-align: center;
       color: #FF6B00;
-      text-shadow: 0 0 10px #FF914D88;
+      text-shadow: 0 0 8px #FF914D88;
     }
-
     h2 {
       font-weight: 400;
-      font-size: 1.15rem;
-      margin: 0 0 2rem;
+      font-size: 1.05rem;
+      margin: 0 0 1.5rem;
       text-align: center;
       color: #FF914D;
     }
-
     label { display: block; margin-bottom: 0.4rem; font-weight: 600; color: #FF914D; }
-
-    input[type="text"],
-    input[type="email"],
-    input[type="tel"],
-    select {
+    input, select {
       width: 100%;
-      padding: 0.75rem 1rem;
-      margin-bottom: 1.5rem;
+      padding: 0.7rem 1rem;
+      margin-bottom: 1.2rem;
       border-radius: 10px;
       border: 2px solid #FF6B00;
       font-size: 1rem;
       color: #FFFFFF;
       background-color: #1E1E1E;
-      box-shadow: 0 0 8px #FF6B00;
-      transition: background-color 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
+      box-shadow: 0 0 6px #FF6B00;
+      transition: background-color 0.3s, box-shadow 0.3s, border-color 0.3s;
     }
-
-    input:focus,
-    select:focus {
+    input:focus, select:focus {
       background-color: #2a2a2a;
       outline: none;
-      border-color: #FF6B00;
-      box-shadow: 0 0 10px #FF6B00;
+      border-color: #FF914D;
+      box-shadow: 0 0 10px #FF914D;
     }
-
     button {
       width: 100%;
-      padding: 0.9rem;
-      font-size: 1.2rem;
+      padding: 0.85rem;
+      font-size: 1.1rem;
       font-weight: 700;
-      background: rgba(255, 107, 0, 0.8);
+      background: #FF6B00;
       color: #0A0A0A;
       border: none;
       border-radius: 12px;
       cursor: pointer;
-      box-shadow: 0 6px 18px #FF914D88;
-      transition: background 0.3s ease, color 0.3s ease;
+      box-shadow: 0 6px 16px #FF6B0088;
       margin-top: 1rem;
+      transition: background 0.3s, color 0.3s;
     }
-
-    button:hover,
-    button:focus {
-      background: rgba(255, 145, 77, 0.85);
+    button:hover, button:focus {
+      background: #FF914D;
       color: #FFFFFF;
-      box-shadow: 0 8px 24px #FF914DCC;
-      outline: none;
+      box-shadow: 0 8px 20px #FF914D99;
     }
-
+    #loginButton {
+      background: transparent;
+      color: #FF914D;
+      font-size: 0.95rem;
+      font-weight: 600;
+      box-shadow: none;
+      margin-top: 0.8rem;
+      text-decoration: underline;
+    }
     #loadingScreen {
       display: none;
       position: fixed;
-      top: 0;
-      left: 0;
+      top: 0; left: 0;
       z-index: 9999;
-      width: 100%;
-      height: 100%;
+      width: 100%; height: 100%;
       background-color: rgba(10, 10, 10, 0.95);
       color: #FF6B00;
-      font-size: 2rem;
+      font-size: 1.5rem;
       text-align: center;
       padding-top: 30vh;
     }
-
     @media (max-width: 480px) {
-      main { margin: 1.5rem 1rem; padding: 2rem 1.5rem; }
+      main { margin: 1rem; padding: 1.2rem; }
+      .glow-icon { width: 80px; height: 80px; }
+      h1 { font-size: 1.6rem; }
+      h2 { font-size: 0.95rem; }
+      button { font-size: 1rem; padding: 0.75rem; }
     }
   </style>
 </head>
 <body>
-
 <canvas id="backgroundCanvas"></canvas>
-
 <main>
   <svg class="glow-icon" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
     <defs>
@@ -182,43 +156,32 @@
     <path d="M20 36v-4c0-6.6 5.4-12 12-12s12 5.4 12 12v4"
           fill="none" stroke="#FFFFFF" stroke-width="2"/>
   </svg>
-
   <h1>TradeAssist A.I</h1>
   <h2>NEVER MISS A JOB AGAIN.</h2>
-
   <form id="signupForm" autocomplete="off" novalidate>
     <label for="name">Full Name</label>
     <input type="text" id="name" name="name" placeholder="Name" required />
-
     <label for="business">Business Name</label>
     <input type="text" id="business" name="business" placeholder="Business Name" required />
-
     <label for="email">Email Address</label>
     <input type="email" id="email" name="email" placeholder="Email@example.com" required />
-
     <label for="phone">Mobile Number</label>
-    <input type="tel" id="phone" name="phone" placeholder="0400 000 000" pattern="[0-9\s\-+]+" required />
-
-  <label for="planSelect">Select Subscription Plan:</label>
-<select id="planSelect" name="planSelect" required>
-  <option value="weekly">Weekly - $7 / week (first week free)</option>
-  <option value="monthly">Monthly - $30 / month (first 7 days free)</option>
-</select>
-
-
+    <input type="tel" id="phone" name="phone" placeholder="0400 000 000" pattern="[0-9\\s\\-+]+" required />
+    <label for="planSelect">Select Subscription Plan:</label>
+    <select id="planSelect" name="planSelect" required>
+      <option value="weekly">Weekly - $7 / week (first week free)</option>
+      <option value="monthly">Monthly - $30 / month (first 7 days free)</option>
+    </select>
     <button type="submit">ONBOARD YOUR 24/7 Receptionist</button>
   </form>
-
   <button id="loginButton" type="button">Login to Dashboard</button>
 </main>
-
 <div id="loadingScreen">Onboarding your AI Receptionist...</div>
 
 <script>
   const canvas = document.getElementById('backgroundCanvas');
   const ctx = canvas.getContext('2d');
   let width, height;
-
   function resize() {
     width = window.innerWidth;
     height = window.innerHeight;
@@ -232,61 +195,48 @@
     constructor() {
       this.x = Math.random() * width;
       this.y = Math.random() * height;
-      this.radius = 2 + Math.random() * 2;
-      this.vx = (Math.random() - 0.5) * 0.8;
-      this.vy = (Math.random() - 0.5) * 0.8;
-      this.alpha = 0.6 + Math.random() * 0.4;
+      this.radius = 1.5 + Math.random() * 1.5;
+      this.vx = (Math.random() - 0.5) * 0.5;
+      this.vy = (Math.random() - 0.5) * 0.5;
+      this.alpha = 0.5 + Math.random() * 0.5;
     }
     move() {
-      this.x += this.vx;
-      this.y += this.vy;
-      if(this.x < 0 || this.x > width) this.vx *= -1;
-      if(this.y < 0 || this.y > height) this.vy *= -1;
+      this.x += this.vx; this.y += this.vy;
+      if (this.x < 0 || this.x > width) this.vx *= -1;
+      if (this.y < 0 || this.y > height) this.vy *= -1;
     }
     draw() {
       ctx.beginPath();
       ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-      ctx.fillStyle = `rgba(255, 107, 0, ${this.alpha})`;
-      ctx.shadowColor = 'rgba(255, 107, 0, 0.7)';
-      ctx.shadowBlur = 8;
+      ctx.fillStyle = \`rgba(255,107,0,\${this.alpha})\`;
       ctx.fill();
-      ctx.shadowBlur = 0;
     }
   }
-
-  const particles = Array.from({ length: 120 }, () => new Particle());
-
+  const particleCount = window.innerWidth < 600 ? 40 : 80;
+  const particles = Array.from({ length: particleCount }, () => new Particle());
   function connectParticles() {
     for (let i = 0; i < particles.length; i++) {
       for (let j = i + 1; j < particles.length; j++) {
         const dx = particles[i].x - particles[j].x;
         const dy = particles[i].y - particles[j].y;
         const dist = Math.sqrt(dx * dx + dy * dy);
-        if (dist < 120) {
+        if (dist < 100) {
           ctx.beginPath();
-          ctx.strokeStyle = `rgba(255, 107, 0, ${1 - dist / 120})`;
-          ctx.lineWidth = 1;
-          ctx.shadowColor = 'rgba(255, 107, 0, 0.5)';
-          ctx.shadowBlur = 6;
+          ctx.strokeStyle = \`rgba(255,107,0,\${1 - dist / 100})\`;
+          ctx.lineWidth = 0.7;
           ctx.moveTo(particles[i].x, particles[i].y);
           ctx.lineTo(particles[j].x, particles[j].y);
           ctx.stroke();
-          ctx.shadowBlur = 0;
         }
       }
     }
   }
-
   function animate() {
     ctx.clearRect(0, 0, width, height);
-    particles.forEach(p => {
-      p.move();
-      p.draw();
-    });
+    particles.forEach(p => { p.move(); p.draw(); });
     connectParticles();
     requestAnimationFrame(animate);
   }
-
   animate();
 </script>
 
@@ -294,17 +244,14 @@
   const form = document.getElementById('signupForm');
   const loadingScreen = document.getElementById('loadingScreen');
   const button = form.querySelector('button');
-
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
     if (!form.checkValidity()) {
       form.reportValidity();
       return;
     }
-
     loadingScreen.style.display = 'block';
     button.disabled = true;
-
     const formData = {
       name: document.getElementById('name').value.trim(),
       business: document.getElementById('business').value.trim(),
@@ -312,14 +259,12 @@
       phoneRaw: document.getElementById('phone').value.trim(),
       planSelect: document.getElementById('planSelect').value
     };
-
     try {
       const res = await fetch('/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData)
       });
-
       if (res.ok) {
         window.location.href = '/success';
       } else {
@@ -331,12 +276,9 @@
       button.disabled = false;
     }
   });
-
   document.getElementById('loginButton').addEventListener('click', () => {
-    window.location.href = 'https://volt-flow.onrender.com/login';
+    window.location.href = '/login';
   });
 </script>
-
 </body>
 </html>
-

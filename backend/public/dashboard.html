@@ -20,10 +20,13 @@
     font-family:'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     background:#0A0A0A; color:#FFFFFF;
     overflow-x:hidden; /* Prevent sideways scroll */
+    -webkit-font-smoothing:antialiased;
+    -webkit-overflow-scrolling:touch;
   }
 
   canvas {
-    position:fixed; top:0; left:0;
+    position:fixed;
+    top:0; left:0;
     width:100%; height:100%;
     z-index:0;
     background:#0A0A0A; display:block;
@@ -72,6 +75,11 @@
     font-size:0.85rem; color:#FF914D; font-weight:bold;
     margin-top:4px; align-self:flex-end;
   }
+
+  /* Voicemail Panel */
+  .voicemail-panel .voicemail-controls { display:flex; flex-direction:column; gap:0.5rem; }
+  .voicemail-controls button { width:100%; }
+  audio { width:100%; margin-top:0.5rem; display:block; }
 
   button {
     margin-top:1rem; width:100%;
@@ -131,58 +139,132 @@
       <ul class="booked" id="booked"><li>Loading booked calls...</li></ul>
       <button onclick="refreshFeed()">Refresh Booked</button>
     </div>
+
+    <!-- Voicemail Panel with Recording -->
+    <div class="panel voicemail-panel">
+      <h2>Voicemail Greeting</h2>
+      <p>Record or upload your custom voicemail greeting. If none is set, the AI default message will play.</p>
+      <div class="voicemail-controls">
+        <button type="button" id="recordBtn">Start Recording</button>
+        <button type="button" id="stopBtn" disabled>Stop Recording</button>
+        <audio id="voicemailPreview" controls style="display:none;"></audio>
+        <button type="button" id="uploadBtn" disabled>Upload Recording</button>
+        <button type="button" onclick="resetVoicemail()">Reset to Default</button>
+      </div>
+    </div>
   </div>
 </main>
 
 <script>
-  // === Canvas Background (optimized) ===
+  // === Canvas Background with glowing connecting lines (optimized) ===
   const canvas = document.getElementById('backgroundCanvas');
   const ctx = canvas.getContext('2d');
-  let width, height;
+  let width = window.innerWidth;
+  let height = window.innerHeight;
 
-  function resize() {
+  function resizeCanvas() {
     width = window.innerWidth;
     height = window.innerHeight;
-    canvas.width = width;
-    canvas.height = height;
+    const ratio = window.devicePixelRatio || 1;
+    canvas.width = Math.floor(width * ratio);
+    canvas.height = Math.floor(height * ratio);
+    canvas.style.width = width + 'px';
+    canvas.style.height = height + 'px';
+    ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
   }
-  resize();
-  window.addEventListener('resize', resize);
-  window.addEventListener('orientationchange', resize);
+  resizeCanvas();
+  window.addEventListener('resize', resizeCanvas);
+  window.addEventListener('orientationchange', () => { setTimeout(resizeCanvas, 300); });
 
   class Particle {
     constructor() {
+      this.reset();
+    }
+    reset() {
       this.x = Math.random()*width;
       this.y = Math.random()*height;
-      this.radius = 1.5+Math.random()*1.5;
-      this.vx = (Math.random()-0.5)*0.5;
-      this.vy = (Math.random()-0.5)*0.5;
-      this.alpha = 0.5+Math.random()*0.5;
+      this.radius = 1 + Math.random()*2;
+      this.vx = (Math.random()-0.5) * (0.3 + Math.random()*0.6);
+      this.vy = (Math.random()-0.5) * (0.3 + Math.random()*0.6);
+      this.alpha = 0.4 + Math.random()*0.6;
     }
     move() {
-      this.x += this.vx; this.y += this.vy;
-      if(this.x<0||this.x>width) this.vx *= -1;
-      if(this.y<0||this.y>height) this.vy *= -1;
+      this.x += this.vx;
+      this.y += this.vy;
+      if (this.x < -10 || this.x > width + 10 || this.y < -10 || this.y > height + 10) {
+        // gently wrap around
+        if (this.x < -10) this.x = width + 10;
+        if (this.x > width + 10) this.x = -10;
+        if (this.y < -10) this.y = height + 10;
+        if (this.y > height + 10) this.y = -10;
+      }
     }
     draw() {
       ctx.beginPath();
-      ctx.arc(this.x,this.y,this.radius,0,Math.PI*2);
+      ctx.arc(this.x, this.y, this.radius, 0, Math.PI*2);
       ctx.fillStyle = `rgba(255,107,0,${this.alpha})`;
       ctx.fill();
     }
   }
 
-  const particles = Array.from({length:50},()=>new Particle()); // fewer for speed
+  // tuned for performance
+  const PARTICLE_COUNT = 60;
+  const MAX_CONNECTION_DISTANCE = 110;
+  const MAX_CONNECTIONS_PER_PARTICLE = 3;
 
-  function animate() {
-    ctx.clearRect(0,0,width,height);
-    particles.forEach(p=>{p.move(); p.draw();});
+  let particles = [];
+  function initParticles() {
+    particles = Array.from({length: PARTICLE_COUNT}, () => new Particle());
+  }
+  initParticles();
+
+  function drawConnections() {
+    // simple O(n^2) but limited by connection cap -> light on CPU
+    for (let i = 0; i < particles.length; i++) {
+      let connections = 0;
+      for (let j = i + 1; j < particles.length && connections < MAX_CONNECTIONS_PER_PARTICLE; j++) {
+        const a = particles[i];
+        const b = particles[j];
+        const dx = a.x - b.x;
+        const dy = a.y - b.y;
+        const distSq = dx*dx + dy*dy;
+        if (distSq > MAX_CONNECTION_DISTANCE*MAX_CONNECTION_DISTANCE) continue;
+        const dist = Math.sqrt(distSq);
+        const alpha = Math.max(0, 1 - dist / MAX_CONNECTION_DISTANCE) * 0.8;
+        ctx.beginPath();
+        ctx.moveTo(a.x, a.y);
+        ctx.lineTo(b.x, b.y);
+        ctx.strokeStyle = `rgba(255,107,0,${alpha})`;
+        ctx.lineWidth = 0.8;
+        ctx.stroke();
+        connections++;
+      }
+    }
+  }
+
+  let lastFrame = 0;
+  function animate(now = 0) {
+    // throttle to ~60fps naturally via requestAnimationFrame; we can limit heavy frames if needed
+    const dt = now - lastFrame;
+    lastFrame = now;
+
+    ctx.clearRect(0, 0, width, height);
+
+    // draw particles
+    for (let i = 0; i < particles.length; i++) {
+      const p = particles[i];
+      p.move();
+      p.draw();
+    }
+
+    // draw connections after particles are drawn (so lines sit under or near blobs)
+    drawConnections();
+
     requestAnimationFrame(animate);
   }
-  animate();
+  requestAnimationFrame(animate);
 
-
-  // === Feed Refresh ===
+  // === Feed Refresh (unchanged logic) ===
   async function refreshFeed(){
     const feedEl=document.getElementById('feed');
     const bookedEl=document.getElementById('booked');
@@ -219,58 +301,78 @@
   const uploadBtn=document.getElementById('uploadBtn');
   const previewAudio=document.getElementById('voicemailPreview');
 
-  recordBtn.addEventListener('click', async ()=>{
-    if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){ return alert("Your browser doesn't support audio recording."); }
-    try{
-      const stream=await navigator.mediaDevices.getUserMedia({audio:true});
-      mediaRecorder=new MediaRecorder(stream);
-      recordedChunks=[];
+  // fallback if elements are missing (safety)
+  function safeEl(el) { return el || { addEventListener(){}, disabled:true }; }
 
-      mediaRecorder.ondataavailable=e=>{ if(e.data.size>0) recordedChunks.push(e.data); };
-      mediaRecorder.onstop=()=>{
-        const blob=new Blob(recordedChunks,{type:'audio/webm'});
-        previewAudio.src=URL.createObjectURL(blob);
-        previewAudio.style.display='block';
-        uploadBtn.disabled=false;
-      };
+  // ensure variables exist even if script runs before HTML loaded
+  (function attachVoicemailHandlers(){
+    if(!recordBtn || !stopBtn || !uploadBtn || !previewAudio) return;
+    recordBtn.addEventListener('click', async ()=>{
+      if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){ return alert("Your browser doesn't support audio recording."); }
+      try{
+        const stream=await navigator.mediaDevices.getUserMedia({audio:true});
+        mediaRecorder=new MediaRecorder(stream);
+        recordedChunks=[];
 
-      mediaRecorder.start();
-      recordBtn.disabled=true;
-      stopBtn.disabled=false;
-      uploadBtn.disabled=true;
-    }catch(err){ console.error(err); alert('Could not access microphone.'); }
-  });
+        mediaRecorder.ondataavailable=e=>{ if(e.data && e.data.size>0) recordedChunks.push(e.data); };
+        mediaRecorder.onstop=()=>{
+          const blob=new Blob(recordedChunks,{type:'audio/webm'});
+          previewAudio.src=URL.createObjectURL(blob);
+          previewAudio.style.display='block';
+          uploadBtn.disabled=false;
+        };
 
-  stopBtn.addEventListener('click', ()=>{
-    mediaRecorder.stop();
-    recordBtn.disabled=false;
-    stopBtn.disabled=true;
-  });
+        mediaRecorder.start();
+        recordBtn.disabled=true;
+        stopBtn.disabled=false;
+        uploadBtn.disabled=true;
+      }catch(err){ console.error(err); alert('Could not access microphone.'); }
+    });
 
-  uploadBtn.addEventListener('click', async ()=>{
-    if(!recordedChunks.length) return alert("No recording to upload.");
-    const blob=new Blob(recordedChunks,{type:'audio/webm'});
-    const formData=new FormData();
-    formData.append('file',blob,'voicemail.webm');
+    stopBtn.addEventListener('click', ()=>{
+      if(mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
+      recordBtn.disabled=false;
+      stopBtn.disabled=true;
+    });
 
-    try{
-      const res=await fetch('/api/upload-voicemail',{method:'POST',body:formData});
-      const data=await res.json();
-      if(data.url){ alert('✅ Voicemail uploaded successfully!'); } 
-      else { alert('❌ Upload failed.'); }
-    }catch(err){ console.error(err); alert('❌ Error uploading voicemail.'); }
-  });
+    uploadBtn.addEventListener('click', async ()=>{
+      if(!recordedChunks.length) return alert("No recording to upload.");
+      const blob=new Blob(recordedChunks,{type:'audio/webm'});
+      const formData=new FormData();
+      formData.append('file',blob,'voicemail.webm');
+
+      try{
+        const res=await fetch('/api/upload-voicemail',{method:'POST',body:formData});
+        const data=await res.json();
+        if(data.url){ alert('✅ Voicemail uploaded successfully!'); } 
+        else { alert('❌ Upload failed.'); }
+      }catch(err){ console.error(err); alert('❌ Error uploading voicemail.'); }
+    });
+  })();
 
   // === Reset Voicemail ===
   async function resetVoicemail(){
-    try{ const res=await fetch('/api/reset-voicemail',{method:'POST'}); if(res.ok){ previewAudio.style.display='none'; previewAudio.src=''; alert('🔄 Reset to AI default voicemail.'); } }
-    catch(err){ console.error(err); alert('❌ Error resetting voicemail.'); }
+    try{
+      const res=await fetch('/api/reset-voicemail',{method:'POST'});
+      if(res.ok){
+        previewAudio.style.display='none';
+        previewAudio.src='';
+        alert('🔄 Reset to AI default voicemail.');
+      } else {
+        alert('❌ Reset failed.');
+      }
+    } catch(err){ console.error(err); alert('❌ Error resetting voicemail.'); }
   }
 
   // === Service Worker Registration ===
-  if('serviceWorker'in navigator){ window.addEventListener('load',()=>{ navigator.serviceWorker.register('/sw.js').then(reg=>console.log('Service Worker registered:',reg)).catch(err=>console.error('Service Worker registration failed:',err)); }); }
+  if('serviceWorker' in navigator){
+    window.addEventListener('load', ()=>{
+      navigator.serviceWorker.register('/sw.js')
+        .then(reg=>console.log('Service Worker registered:', reg))
+        .catch(err=>console.error('Service Worker registration failed:', err));
+    });
+  }
 </script>
 </body>
 </html>
-
 

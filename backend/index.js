@@ -41,6 +41,14 @@ app.use(bodyParser.urlencoded({ extended: false }));
 // Serve static assets from public folder
 app.use(express.static(path.join(__dirname, 'public')));
 
+const fileUpload = require('express-fileupload');
+
+app.use(fileUpload({
+  createParentPath: true,
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB max
+}));
+
+
 // ================= Pages =================
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public/index.html')));
 app.get('/login', (req, res) => res.sendFile(path.join(__dirname, 'public/login.html')));

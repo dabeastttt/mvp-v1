@@ -12,6 +12,7 @@
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
-    "@supabase/supabase-js": "^2.57.2"
+    "@supabase/supabase-js": "^2.57.2",
+    "express-fileupload": "^1.5.2"
   }
 }

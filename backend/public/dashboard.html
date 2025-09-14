@@ -15,46 +15,83 @@
 
 <style>
   html, body {
-    margin:0; padding:0; width:100%; height:100%;
+    margin:0; padding:0;
+    width:100%; height:100%;
     font-family:'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    background:#0A0A0A; color:#FFFFFF; overflow:auto;
+    background:#0A0A0A; color:#FFFFFF;
+    overflow-x:hidden; /* Prevent sideways scroll */
   }
 
   canvas {
-    position:fixed; top:0; left:0; width:100vw; height:100vh; z-index:0;
+    position:fixed; top:0; left:0;
+    width:100%; height:100%;
+    z-index:0;
     background:#0A0A0A; display:block;
+    pointer-events:none; /* Make sure touches pass through */
   }
 
   main {
-    position:relative; z-index:10; width:95%; max-width:1000px;
-    margin:2rem auto; background:rgba(30,30,30,0.25);
-    backdrop-filter:blur(2.5px); border-radius:16px; box-shadow:0 0 20px #FF914D99;
-    padding:2rem; box-sizing:border-box; max-height:90vh; overflow-y:auto;
+    position:relative; z-index:10;
+    width:95%; max-width:1000px;
+    margin:2rem auto; 
+    background:rgba(30,30,30,0.25);
+    backdrop-filter:blur(2.5px);
+    border-radius:16px;
+    box-shadow:0 0 20px #FF914D99;
+    padding:2rem; box-sizing:border-box;
   }
 
   .glow-icon { width:80px; height:80px; margin:0 auto 1rem auto; display:block; filter:drop-shadow(0 0 12px #FF6B00); }
 
   h1 { text-align:center; font-size:2rem; margin-bottom:1.5rem; color:#FF6B00; text-shadow:0 0 10px #FF914Dbb; }
-  .dashboard-grid { display:grid; grid-template-columns:1fr 1fr; gap:1.5rem; }
-
-  .panel { background:rgba(30,30,30,0.5); border-radius:12px; padding:1rem; box-shadow:0 0 12px #FF6B0099; }
-  .panel h2 { margin-top:0; color:#FF914D; font-size:1.25rem; }
-  .feed, .booked { list-style:none; padding:0; margin:0; max-height:70vh; overflow-y:auto; }
-  .feed li, .booked li { padding:0.75rem; margin-bottom:0.5rem; background:rgba(0,0,0,0.4); border-left:4px solid #FF6B00; border-radius:8px; box-shadow:0 2px 6px rgba(255,107,0,0.3); color:#FF914D; display:flex; flex-direction:column; }
-  .feed li span.time, .booked li span.time { font-size:0.85rem; color:#FF914D; font-weight:bold; margin-top:4px; align-self:flex-end; }
   h2.dashboard-subtitle { text-align:center; font-size:1.2rem; color:#FF914D; margin-top:0.25rem; margin-bottom:2rem; font-weight:600; text-shadow:0 0 8px #FF914Dbb; }
 
-  button { margin-top:1rem; width:100%; padding:0.75rem; background:#FF6B00; color:#0A0A0A; border:none; border-radius:12px; cursor:pointer; font-weight:700; box-shadow:0 6px 16px #FF6B0088; transition:background 0.3s ease, box-shadow 0.3s ease; }
-  button:hover { background:#FF914D; box-shadow:0 8px 20px #FF6B0099; color:#FFFFFF; }
+  .dashboard-grid { display:grid; grid-template-columns:1fr 1fr; gap:1.5rem; }
 
-  /* Voicemail Panel */
-  .voicemail-panel .voicemail-controls button { margin-top:0.5rem; }
-  audio { width:100%; margin-top:0.5rem; }
+  .panel {
+    background:rgba(30,30,30,0.5);
+    border-radius:12px;
+    padding:1rem;
+    box-shadow:0 0 12px #FF6B0099;
+  }
+  .panel h2 { margin-top:0; color:#FF914D; font-size:1.25rem; }
+
+  .feed, .booked {
+    list-style:none; padding:0; margin:0;
+  }
+  .feed li, .booked li {
+    padding:0.75rem; margin-bottom:0.5rem;
+    background:rgba(0,0,0,0.4);
+    border-left:4px solid #FF6B00;
+    border-radius:8px;
+    box-shadow:0 2px 6px rgba(255,107,0,0.3);
+    color:#FF914D;
+    display:flex; flex-direction:column;
+  }
+  .feed li span.time, .booked li span.time {
+    font-size:0.85rem; color:#FF914D; font-weight:bold;
+    margin-top:4px; align-self:flex-end;
+  }
+
+  button {
+    margin-top:1rem; width:100%;
+    padding:0.75rem;
+    background:#FF6B00; color:#0A0A0A;
+    border:none; border-radius:12px;
+    cursor:pointer; font-weight:700;
+    box-shadow:0 6px 16px #FF6B0088;
+    transition:background 0.3s ease, box-shadow 0.3s ease;
+  }
+  button:hover {
+    background:#FF914D;
+    box-shadow:0 8px 20px #FF6B0099;
+    color:#FFFFFF;
+  }
 
   /* Mobile Responsive */
   @media (max-width: 768px) {
     .dashboard-grid { grid-template-columns:1fr; }
-    main { margin:1rem; padding:1rem; max-height:none; }
+    main { margin:1rem; padding:1rem; }
     h1 { font-size:1.5rem; }
     h2.dashboard-subtitle { font-size:1rem; }
   }
@@ -65,7 +102,7 @@
 <canvas id="backgroundCanvas"></canvas>
 
 <main>
-  <!-- SVG Logo -->
+  <!-- Logo -->
   <svg class="glow-icon" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
     <defs>
       <linearGradient id="orangeBolt" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -94,40 +131,56 @@
       <ul class="booked" id="booked"><li>Loading booked calls...</li></ul>
       <button onclick="refreshFeed()">Refresh Booked</button>
     </div>
-
-    <!-- Voicemail Panel with Recording -->
-    <div class="panel voicemail-panel">
-      <h2>Voicemail Greeting</h2>
-      <p>Record or upload your custom voicemail greeting. If none is set, the AI default message will play.</p>
-      <div class="voicemail-controls">
-        <button type="button" id="recordBtn">Start Recording</button>
-        <button type="button" id="stopBtn" disabled>Stop Recording</button>
-        <audio id="voicemailPreview" controls style="display:none;"></audio>
-        <button type="button" id="uploadBtn" disabled>Upload Recording</button>
-        <button type="button" onclick="resetVoicemail()">Reset to Default</button>
-      </div>
-    </div>
   </div>
 </main>
 
 <script>
-  // === Canvas Background ===
+  // === Canvas Background (optimized) ===
   const canvas = document.getElementById('backgroundCanvas');
   const ctx = canvas.getContext('2d');
   let width, height;
-  function resize(){ width=window.innerWidth; height=window.innerHeight; canvas.width=width; canvas.height=height; }
+
+  function resize() {
+    width = window.innerWidth;
+    height = window.innerHeight;
+    canvas.width = width;
+    canvas.height = height;
+  }
   resize();
   window.addEventListener('resize', resize);
   window.addEventListener('orientationchange', resize);
 
-  class Particle { constructor(){ this.x=Math.random()*width; this.y=Math.random()*height; this.radius=2+Math.random()*2; this.vx=(Math.random()-0.5)*0.8; this.vy=(Math.random()-0.5)*0.8; this.alpha=0.6+Math.random()*0.4; }
-  move(){ this.x+=this.vx; this.y+=this.vy; if(this.x<0||this.x>width)this.vx*=-1; if(this.y<0||this.y>height)this.vy*=-1; }
-  draw(){ ctx.beginPath(); ctx.arc(this.x,this.y,this.radius,0,Math.PI*2); ctx.fillStyle=`rgba(255,107,0,${this.alpha})`; ctx.shadowColor='rgba(255,107,0,0.7)'; ctx.shadowBlur=8; ctx.fill(); ctx.shadowBlur=0; } }
+  class Particle {
+    constructor() {
+      this.x = Math.random()*width;
+      this.y = Math.random()*height;
+      this.radius = 1.5+Math.random()*1.5;
+      this.vx = (Math.random()-0.5)*0.5;
+      this.vy = (Math.random()-0.5)*0.5;
+      this.alpha = 0.5+Math.random()*0.5;
+    }
+    move() {
+      this.x += this.vx; this.y += this.vy;
+      if(this.x<0||this.x>width) this.vx *= -1;
+      if(this.y<0||this.y>height) this.vy *= -1;
+    }
+    draw() {
+      ctx.beginPath();
+      ctx.arc(this.x,this.y,this.radius,0,Math.PI*2);
+      ctx.fillStyle = `rgba(255,107,0,${this.alpha})`;
+      ctx.fill();
+    }
+  }
 
-  const particles = Array.from({length:120},()=>new Particle());
-  function connectParticles(){ for(let i=0;i<particles.length;i++){ for(let j=i+1;j<particles.length;j++){ const dx=particles[i].x-particles[j].x; const dy=particles[i].y-particles[j].y; const dist=Math.sqrt(dx*dx+dy*dy); if(dist<120){ ctx.beginPath(); ctx.strokeStyle=`rgba(255,107,0,${1-dist/120})`; ctx.lineWidth=1; ctx.shadowColor='rgba(255,107,0,0.5)'; ctx.shadowBlur=6; ctx.moveTo(particles[i].x,particles[i].y); ctx.lineTo(particles[j].x,particles[j].y); ctx.stroke(); ctx.shadowBlur=0; }}}}
-  function animate(){ ctx.clearRect(0,0,width,height); particles.forEach(p=>{p.move();p.draw();}); connectParticles(); requestAnimationFrame(animate); }
+  const particles = Array.from({length:50},()=>new Particle()); // fewer for speed
+
+  function animate() {
+    ctx.clearRect(0,0,width,height);
+    particles.forEach(p=>{p.move(); p.draw();});
+    requestAnimationFrame(animate);
+  }
   animate();
+
 
   // === Feed Refresh ===
   async function refreshFeed(){

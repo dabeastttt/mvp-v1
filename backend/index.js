@@ -227,33 +227,32 @@ app.post('/call-status', async (req, res) => {
   if (!convo.handledCalls) convo.handledCalls = new Set();
 
   try {
-    // 1️⃣ Completed call with voicemail (Twilio might not provide RecordingUrl immediately)
+    // ----------------- Voicemail already present -----------------
     if (CallStatus === 'completed' && RecordingUrl && RecordingUrl.trim() !== '') {
       pendingVoicemails.add(CallSid);
+
+      // Cancel any "no voicemail" timeout
       if (pendingNoVoicemail.has(CallSid)) {
         clearTimeout(pendingNoVoicemail.get(CallSid));
         pendingNoVoicemail.delete(CallSid);
       }
 
-      if (!convo.handledCalls.has(CallSid)) {
-        convo.handledCalls.add(CallSid);
-        conversations[from] = { ...convo, step: 'waiting_for_voicemail' };
-        console.log(`[call-status] Voicemail detected for ${from}, waiting for transcription...`);
-      }
-
+      console.log(`[call-status] Voicemail detected for ${from}, waiting for /voicemail webhook.`);
       return res.status(200).send('Voicemail detected, waiting for transcription');
     }
 
-    // 2️⃣ Completed call with no voicemail → schedule AI follow-up after short wait
+    // ----------------- Completed call with no RecordingUrl -----------------
     if (CallStatus === 'completed' && (!RecordingUrl || RecordingUrl.trim() === '')) {
-      if (pendingNoVoicemail.has(CallSid) || convo.handledCalls.has(CallSid)) {
-        return res.status(200).send('Already scheduled follow-up');
+      if (convo.handledCalls.has(CallSid) || pendingNoVoicemail.has(CallSid)) {
+        return res.status(200).send('Follow-up already scheduled');
       }
 
+      // Schedule a delayed AI follow-up in case no voicemail is left
       const timeout = setTimeout(async () => {
         if (!pendingVoicemails.has(CallSid)) {
           convo.handledCalls.add(CallSid);
           conversations[from] = { ...convo, step: 'voicemail_followup_sent' };
+
           const transcription = '[No voicemail left]';
 
           // Notify tradie
@@ -280,14 +279,14 @@ app.post('/call-status', async (req, res) => {
           console.log(`✅ AI follow-up sent for missed call without voicemail: ${from}`);
         }
         pendingNoVoicemail.delete(CallSid);
-      }, 15000); // wait 15s for voicemail to arrive
+      }, 15000); // 15s wait for voicemail
 
       pendingNoVoicemail.set(CallSid, timeout);
       console.log(`[call-status] Scheduled wait for voicemail for ${from}`);
       return res.status(200).send('Scheduled wait for voicemail');
     }
 
-    // 3️⃣ Busy/no-answer → immediate AI follow-up
+    // ----------------- Busy/no-answer -----------------
     if (['no-answer', 'busy'].includes(CallStatus) && !convo.handledCalls.has(CallSid)) {
       convo.handledCalls.add(CallSid);
       conversations[from] = { ...convo, step: 'voicemail_followup_sent' };
@@ -328,19 +327,103 @@ app.post('/call-status', async (req, res) => {
 
 
 // ===== /voice handler =====
-app.post('/voice', (req, res) => {
+app.post('/voice', async (req, res) => {
   const response = new twilio.twiml.VoiceResponse();
-  response.say("Hi! The tradie is unavailable. Leave a message after the beep.");
-  response.record({
-    maxLength: 60,
-    playBeep: true,
-    transcribe: true, // triggers Twilio transcription
-    transcribeCallback: process.env.BASE_URL + '/voicemail'
-  });
-  response.hangup();
+
+  try {
+    const tradieNumber = process.env.TRADIE_PHONE_NUMBER;
+
+    // fetch voicemail greeting from Supabase
+    const { data, error } = await supabase
+      .from('tradies')
+      .select('voicemail_url')
+      .eq('phone', tradieNumber)
+      .single();
+
+    if (error) {
+      console.error("❌ Supabase error fetching voicemail_url:", error.message);
+    }
+
+    if (data && data.voicemail_url) {
+      // Custom greeting
+      response.play(data.voicemail_url);
+    } else {
+      // Default AI greeting
+      response.say("Hi! The tradie is unavailable. Leave a message after the beep.");
+    }
+
+    // Record voicemail
+    response.record({
+      maxLength: 60,
+      playBeep: true,
+      transcribe: true, // triggers Twilio transcription
+      transcribeCallback: process.env.BASE_URL + '/voicemail'
+    });
+
+    response.hangup();
+
+  } catch (err) {
+    console.error("❌ Error in /voice handler:", err.message);
+    response.say("Hi! The tradie is unavailable. Leave a message after the beep.");
+    response.record({
+      maxLength: 60,
+      playBeep: true,
+      transcribe: true,
+      transcribeCallback: process.env.BASE_URL + '/voicemail'
+    });
+    response.hangup();
+  }
+
   res.type('text/xml').send(response.toString());
 });
 
+//upload voicemail 
+app.post('/api/upload-voicemail', async (req, res) => {
+  try {
+    const file = req.files.file; // if using express-fileupload
+    const tradieNumber = process.env.TRADIE_PHONE_NUMBER;
+
+    // Upload to Supabase Storage
+    const { data: uploadData, error: uploadError } = await supabase.storage
+      .from('voicemails')
+      .upload(`${tradieNumber}/${Date.now()}-${file.name}`, file.data, { contentType: file.mimetype });
+
+    if (uploadError) throw uploadError;
+
+    const voicemailUrl = `${process.env.SUPABASE_URL}/storage/v1/object/public/voicemails/${uploadData.path}`;
+
+    // Update tradie record
+    const { error: updateError } = await supabase
+      .from('tradies')
+      .update({ voicemail_url: voicemailUrl })
+      .eq('phone', tradieNumber);
+
+    if (updateError) throw updateError;
+
+    res.json({ url: voicemailUrl });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+//reset voicemail
+
+app.post('/api/reset-voicemail', async (req, res) => {
+  try {
+    const tradieNumber = process.env.TRADIE_PHONE_NUMBER;
+    const { error } = await supabase
+      .from('tradies')
+      .update({ voicemail_url: null })
+      .eq('phone', tradieNumber);
+
+    if (error) throw error;
+    res.status(200).send('Voicemail reset');
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Error resetting voicemail');
+  }
+});
 
 
 

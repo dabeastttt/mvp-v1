@@ -15,7 +15,8 @@ app.get('/login', (req, res) => {
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
       background: #0A0A0A;
       color: #FFFFFF;
-      overflow-x: hidden; /* allow vertical scroll */
+      overflow-x: hidden;
+      overflow-y: auto;
     }
     canvas {
       position: fixed;
@@ -25,7 +26,7 @@ app.get('/login', (req, res) => {
       z-index: 0;
       background: #0A0A0A;
       display: block;
-      pointer-events: none; /* don’t block touches */
+      pointer-events: none;
     }
     main {
       position: relative;
@@ -34,7 +35,8 @@ app.get('/login', (req, res) => {
       max-width: 400px;
       margin: 4rem auto;
       background: rgba(30, 30, 30, 0.25);
-      backdrop-filter: blur(2.5px);
+      backdrop-filter: blur(3px);
+      -webkit-backdrop-filter: blur(3px);
       border-radius: 16px;
       box-shadow: 0 0 20px #FF914D99;
       padding: 2rem 1.5rem;
@@ -62,8 +64,6 @@ app.get('/login', (req, res) => {
     button:hover, button:focus {
       background: #FF914D; color: #FFFFFF; box-shadow: 0 8px 18px #FF6B0099; outline: none;
     }
-
-    /* Mobile */
     @media (max-width: 600px) {
       main { margin: 2rem auto; padding: 1.2rem; }
       .glow-icon { width: 80px; height: 80px; }
@@ -110,10 +110,10 @@ app.get('/login', (req, res) => {
     constructor() {
       this.x = Math.random() * width;
       this.y = Math.random() * height;
-      this.radius = 1.5 + Math.random() * 1.5;
-      this.vx = (Math.random() - 0.5) * 0.5;
-      this.vy = (Math.random() - 0.5) * 0.5;
-      this.alpha = 0.5 + Math.random() * 0.5;
+      this.radius = 2 + Math.random() * 2;
+      this.vx = (Math.random() - 0.5) * 0.6;
+      this.vy = (Math.random() - 0.5) * 0.6;
+      this.alpha = 0.6 + Math.random() * 0.4;
     }
     move() {
       this.x += this.vx; this.y += this.vy;
@@ -124,11 +124,14 @@ app.get('/login', (req, res) => {
       ctx.beginPath();
       ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
       ctx.fillStyle = \`rgba(255,107,0,\${this.alpha})\`;
+      ctx.shadowColor = 'rgba(255, 107, 0, 0.7)';
+      ctx.shadowBlur = 8;
       ctx.fill();
+      ctx.shadowBlur = 0;
     }
   }
 
-  const particleCount = window.innerWidth < 600 ? 40 : 80;
+  const particleCount = window.innerWidth < 600 ? 60 : 120;
   const particles = Array.from({ length: particleCount }, () => new Particle());
 
   function connectParticles() {
@@ -137,13 +140,16 @@ app.get('/login', (req, res) => {
         const dx = particles[i].x - particles[j].x;
         const dy = particles[i].y - particles[j].y;
         const dist = Math.sqrt(dx * dx + dy * dy);
-        if (dist < 100) {
+        if (dist < 130) {
           ctx.beginPath();
-          ctx.strokeStyle = \`rgba(255,107,0,\${1 - dist / 100})\`;
-          ctx.lineWidth = 0.7;
+          ctx.strokeStyle = \`rgba(255,107,0,\${1 - dist / 130})\`;
+          ctx.lineWidth = 1;
+          ctx.shadowColor = 'rgba(255, 107, 0, 0.5)';
+          ctx.shadowBlur = 6;
           ctx.moveTo(particles[i].x, particles[i].y);
           ctx.lineTo(particles[j].x, particles[j].y);
           ctx.stroke();
+          ctx.shadowBlur = 0;
         }
       }
     }
@@ -161,4 +167,3 @@ app.get('/login', (req, res) => {
 </html>`;
   res.send(html);
 });
-

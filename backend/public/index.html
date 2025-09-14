@@ -27,6 +27,8 @@
       color: #FFFFFF;
       overflow-x: hidden;
     }
+
+    /* Background canvas (fixed, won’t scroll with content) */
     canvas {
       position: fixed;
       top: 0; left: 0;
@@ -36,10 +38,21 @@
       display: block;
       pointer-events: none;
     }
+
+    /* Center content wrapper */
+    body {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      flex-direction: column;
+    }
+
     main {
       position: relative;
       z-index: 10;
       max-width: 360px;
+      width: 90%;
       margin: 2rem auto;
       padding: 1.5rem;
       background: rgba(30, 30, 30, 0.15);
@@ -47,6 +60,7 @@
       box-shadow: 0 0 20px #FF914D66;
       backdrop-filter: blur(2.5px);
     }
+
     .glow-icon {
       display: block;
       margin: 0 auto 1.2rem auto;
@@ -58,6 +72,7 @@
       0%, 100% { filter: drop-shadow(0 0 6px #FF6B00AA); }
       50% { filter: drop-shadow(0 0 14px #FF914DCC); }
     }
+
     h1 {
       font-weight: 900;
       font-size: 2rem;
@@ -73,6 +88,7 @@
       text-align: center;
       color: #FF914D;
     }
+
     label { display: block; margin-bottom: 0.4rem; font-weight: 600; color: #FF914D; }
     input, select {
       width: 100%;
@@ -92,6 +108,7 @@
       border-color: #FF914D;
       box-shadow: 0 0 10px #FF914D;
     }
+
     button {
       width: 100%;
       padding: 0.85rem;
@@ -111,6 +128,7 @@
       color: #FFFFFF;
       box-shadow: 0 8px 20px #FF914D99;
     }
+
     #loginButton {
       background: transparent;
       color: #FF914D;
@@ -120,6 +138,7 @@
       margin-top: 0.8rem;
       text-decoration: underline;
     }
+
     #loadingScreen {
       display: none;
       position: fixed;
@@ -132,6 +151,7 @@
       text-align: center;
       padding-top: 30vh;
     }
+
     @media (max-width: 480px) {
       main { margin: 1rem; padding: 1.2rem; }
       .glow-icon { width: 80px; height: 80px; }
@@ -143,6 +163,7 @@
 </head>
 <body>
 <canvas id="backgroundCanvas"></canvas>
+
 <main>
   <svg class="glow-icon" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
     <defs>
@@ -158,6 +179,7 @@
   </svg>
   <h1>TradeAssist A.I</h1>
   <h2>NEVER MISS A JOB AGAIN.</h2>
+
   <form id="signupForm" autocomplete="off" novalidate>
     <label for="name">Full Name</label>
     <input type="text" id="name" name="name" placeholder="Name" required />
@@ -174,10 +196,13 @@
     </select>
     <button type="submit">ONBOARD YOUR 24/7 Receptionist</button>
   </form>
+
   <button id="loginButton" type="button">Login to Dashboard</button>
 </main>
+
 <div id="loadingScreen">Onboarding your AI Receptionist...</div>
 
+<!-- Background Particles -->
 <script>
   const canvas = document.getElementById('backgroundCanvas');
   const ctx = canvas.getContext('2d');
@@ -208,7 +233,7 @@
     draw() {
       ctx.beginPath();
       ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-      ctx.fillStyle = \`rgba(255,107,0,\${this.alpha})\`;
+      ctx.fillStyle = `rgba(255,107,0,${this.alpha})`;
       ctx.fill();
     }
   }
@@ -222,7 +247,7 @@
         const dist = Math.sqrt(dx * dx + dy * dy);
         if (dist < 100) {
           ctx.beginPath();
-          ctx.strokeStyle = \`rgba(255,107,0,\${1 - dist / 100})\`;
+          ctx.strokeStyle = `rgba(255,107,0,${1 - dist / 100})`;
           ctx.lineWidth = 0.7;
           ctx.moveTo(particles[i].x, particles[i].y);
           ctx.lineTo(particles[j].x, particles[j].y);
@@ -240,10 +265,12 @@
   animate();
 </script>
 
+<!-- Form Handling -->
 <script>
   const form = document.getElementById('signupForm');
   const loadingScreen = document.getElementById('loadingScreen');
   const button = form.querySelector('button');
+
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
     if (!form.checkValidity()) {
@@ -252,6 +279,7 @@
     }
     loadingScreen.style.display = 'block';
     button.disabled = true;
+
     const formData = {
       name: document.getElementById('name').value.trim(),
       business: document.getElementById('business').value.trim(),
@@ -259,6 +287,7 @@
       phoneRaw: document.getElementById('phone').value.trim(),
       planSelect: document.getElementById('planSelect').value
     };
+
     try {
       const res = await fetch('/register', {
         method: 'POST',
@@ -276,6 +305,7 @@
       button.disabled = false;
     }
   });
+
   document.getElementById('loginButton').addEventListener('click', () => {
     window.location.href = '/login';
   });

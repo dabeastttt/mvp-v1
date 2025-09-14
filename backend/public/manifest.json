@@ -1,0 +1,26 @@
+{
+  "name": "TradeAssist AI",
+  "short_name": "TradeAssist",
+  "description": "Never miss a job again. Your AI-powered assistant for managing calls and voicemails.",
+  "start_url": "/dashboard.html",
+  "display": "standalone",
+  "background_color": "#0A0A0A",
+  "theme_color": "#FF6B00",
+  "icons": [
+    {
+      "src": "icons/icon-48.png",
+      "sizes": "48x48",
+      "type": "image/png"
+    },
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

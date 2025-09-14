@@ -19,24 +19,23 @@
     width:100%; height:100%;
     font-family:'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     background:#0A0A0A; color:#FFFFFF;
-    overflow-x:hidden; /* Prevent sideways scroll */
+    overflow-x:hidden;
     -webkit-font-smoothing:antialiased;
     -webkit-overflow-scrolling:touch;
   }
 
   canvas {
-    position:fixed;
-    top:0; left:0;
+    position:fixed; top:0; left:0;
     width:100%; height:100%;
     z-index:0;
     background:#0A0A0A; display:block;
-    pointer-events:none; /* Make sure touches pass through */
+    pointer-events:none;
   }
 
   main {
     position:relative; z-index:10;
     width:95%; max-width:1000px;
-    margin:2rem auto; 
+    margin:2rem auto;
     background:rgba(30,30,30,0.25);
     backdrop-filter:blur(2.5px);
     border-radius:16px;
@@ -59,9 +58,7 @@
   }
   .panel h2 { margin-top:0; color:#FF914D; font-size:1.25rem; }
 
-  .feed, .booked {
-    list-style:none; padding:0; margin:0;
-  }
+  .feed, .booked { list-style:none; padding:0; margin:0; }
   .feed li, .booked li {
     padding:0.75rem; margin-bottom:0.5rem;
     background:rgba(0,0,0,0.4);
@@ -76,7 +73,6 @@
     margin-top:4px; align-self:flex-end;
   }
 
-  /* Voicemail Panel */
   .voicemail-panel .voicemail-controls { display:flex; flex-direction:column; gap:0.5rem; }
   .voicemail-controls button { width:100%; }
   audio { width:100%; margin-top:0.5rem; display:block; }
@@ -96,7 +92,6 @@
     color:#FFFFFF;
   }
 
-  /* Mobile Responsive */
   @media (max-width: 768px) {
     .dashboard-grid { grid-template-columns:1fr; }
     main { margin:1rem; padding:1rem; }
@@ -110,7 +105,6 @@
 <canvas id="backgroundCanvas"></canvas>
 
 <main>
-  <!-- Logo -->
   <svg class="glow-icon" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
     <defs>
       <linearGradient id="orangeBolt" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -140,7 +134,6 @@
       <button onclick="refreshFeed()">Refresh Booked</button>
     </div>
 
-    <!-- Voicemail Panel with Recording -->
     <div class="panel voicemail-panel">
       <h2>Voicemail Greeting</h2>
       <p>Record or upload your custom voicemail greeting. If none is set, the AI default message will play.</p>
@@ -156,165 +149,146 @@
 </main>
 
 <script>
-  // === Canvas Background with glowing connecting lines (optimized) ===
   const canvas = document.getElementById('backgroundCanvas');
   const ctx = canvas.getContext('2d');
-  let width = window.innerWidth;
-  let height = window.innerHeight;
+  let width = window.innerWidth, height = window.innerHeight;
 
   function resizeCanvas() {
+    const ratio = window.devicePixelRatio || 1;
     width = window.innerWidth;
     height = window.innerHeight;
-    const ratio = window.devicePixelRatio || 1;
     canvas.width = Math.floor(width * ratio);
     canvas.height = Math.floor(height * ratio);
-    canvas.style.width = width + 'px';
-    canvas.style.height = height + 'px';
+    canvas.style.width = width+'px';
+    canvas.style.height = height+'px';
     ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
   }
-  resizeCanvas();
   window.addEventListener('resize', resizeCanvas);
-  window.addEventListener('orientationchange', () => { setTimeout(resizeCanvas, 300); });
+  window.addEventListener('orientationchange', ()=>setTimeout(resizeCanvas,300));
+  resizeCanvas();
 
   class Particle {
-    constructor() {
-      this.reset();
-    }
+    constructor(){ this.reset(); }
     reset() {
-      this.x = Math.random()*width;
-      this.y = Math.random()*height;
-      this.radius = 1 + Math.random()*2;
-      this.vx = (Math.random()-0.5) * (0.3 + Math.random()*0.6);
-      this.vy = (Math.random()-0.5) * (0.3 + Math.random()*0.6);
-      this.alpha = 0.4 + Math.random()*0.6;
+      this.x=Math.random()*width;
+      this.y=Math.random()*height;
+      this.radius=1+Math.random()*2;
+      this.vx=(Math.random()-0.5)*(0.3+Math.random()*0.6);
+      this.vy=(Math.random()-0.5)*(0.3+Math.random()*0.6);
+      this.alpha=0.4+Math.random()*0.6;
     }
-    move() {
-      this.x += this.vx;
-      this.y += this.vy;
-      if (this.x < -10 || this.x > width + 10 || this.y < -10 || this.y > height + 10) {
-        // gently wrap around
-        if (this.x < -10) this.x = width + 10;
-        if (this.x > width + 10) this.x = -10;
-        if (this.y < -10) this.y = height + 10;
-        if (this.y > height + 10) this.y = -10;
-      }
+    move(){
+      this.x+=this.vx;
+      this.y+=this.vy;
+      if(this.x<-10)this.x=width+10;
+      if(this.x>width+10)this.x=-10;
+      if(this.y<-10)this.y=height+10;
+      if(this.y>height+10)this.y=-10;
     }
-    draw() {
+    draw(){
       ctx.beginPath();
-      ctx.arc(this.x, this.y, this.radius, 0, Math.PI*2);
-      ctx.fillStyle = `rgba(255,107,0,${this.alpha})`;
+      ctx.arc(this.x,this.y,this.radius,0,Math.PI*2);
+      ctx.fillStyle=`rgba(255,107,0,${this.alpha})`;
       ctx.fill();
     }
   }
 
-  // tuned for performance
-  const PARTICLE_COUNT = 60;
-  const MAX_CONNECTION_DISTANCE = 110;
-  const MAX_CONNECTIONS_PER_PARTICLE = 3;
+  const PARTICLE_COUNT=60;
+  const MAX_CONNECTION_DISTANCE=110;
+  const MAX_CONNECTIONS_PER_PARTICLE=3;
+  let particles=[];
 
-  let particles = [];
-  function initParticles() {
-    particles = Array.from({length: PARTICLE_COUNT}, () => new Particle());
-  }
-  initParticles();
-
-  function drawConnections() {
-    // simple O(n^2) but limited by connection cap -> light on CPU
-    for (let i = 0; i < particles.length; i++) {
-      let connections = 0;
-      for (let j = i + 1; j < particles.length && connections < MAX_CONNECTIONS_PER_PARTICLE; j++) {
-        const a = particles[i];
-        const b = particles[j];
-        const dx = a.x - b.x;
-        const dy = a.y - b.y;
-        const distSq = dx*dx + dy*dy;
-        if (distSq > MAX_CONNECTION_DISTANCE*MAX_CONNECTION_DISTANCE) continue;
-        const dist = Math.sqrt(distSq);
-        const alpha = Math.max(0, 1 - dist / MAX_CONNECTION_DISTANCE) * 0.8;
+  function initParticles(){ particles=Array.from({length:PARTICLE_COUNT},()=>new Particle()); }
+  function drawConnections(){
+    for(let i=0;i<particles.length;i++){
+      let connections=0;
+      for(let j=i+1;j<particles.length && connections<MAX_CONNECTIONS_PER_PARTICLE;j++){
+        const a=particles[i], b=particles[j];
+        const dx=a.x-b.x, dy=a.y-b.y, distSq=dx*dx+dy*dy;
+        if(distSq>MAX_CONNECTION_DISTANCE*MAX_CONNECTION_DISTANCE) continue;
+        const alpha=Math.max(0,1-distSq**0.5/MAX_CONNECTION_DISTANCE)*0.8;
         ctx.beginPath();
-        ctx.moveTo(a.x, a.y);
-        ctx.lineTo(b.x, b.y);
-        ctx.strokeStyle = `rgba(255,107,0,${alpha})`;
-        ctx.lineWidth = 0.8;
+        ctx.moveTo(a.x,a.y);
+        ctx.lineTo(b.x,b.y);
+        ctx.strokeStyle=`rgba(255,107,0,${alpha})`;
+        ctx.lineWidth=0.8;
         ctx.stroke();
         connections++;
       }
     }
   }
 
-  let lastFrame = 0;
-  function animate(now = 0) {
-    // throttle to ~60fps naturally via requestAnimationFrame; we can limit heavy frames if needed
-    const dt = now - lastFrame;
-    lastFrame = now;
-
-    ctx.clearRect(0, 0, width, height);
-
-    // draw particles
-    for (let i = 0; i < particles.length; i++) {
-      const p = particles[i];
-      p.move();
-      p.draw();
-    }
-
-    // draw connections after particles are drawn (so lines sit under or near blobs)
+  function animate(now=0){
+    ctx.clearRect(0,0,width,height);
+    particles.forEach(p=>{p.move();p.draw();});
     drawConnections();
-
     requestAnimationFrame(animate);
   }
-  requestAnimationFrame(animate);
+  initParticles();
+  animate();
 
-  // === Feed Refresh (unchanged logic) ===
+  // === Feed Refresh ===
   async function refreshFeed(){
     const feedEl=document.getElementById('feed');
     const bookedEl=document.getElementById('booked');
     feedEl.innerHTML='<li>Refreshing feed...</li>';
     bookedEl.innerHTML='<li>Refreshing booked calls...</li>';
 
-    try {
-      const [messagesRes, bookingsRes] = await Promise.all([ fetch('/api/messages'), fetch('/api/bookings') ]);
+    try{
+      const [messagesRes, bookingsRes] = await Promise.all([fetch('/api/messages'), fetch('/api/bookings')]);
       const messages = await messagesRes.json();
       const bookings = await bookingsRes.json();
 
       const seenNumbers = new Set();
-      const feedItems = messages.filter(msg=>msg.customer_name && msg.customer_name!=='Unknown' && msg.intent && msg.intent!=='No intent' && msg.from_number && msg.from_number!=='No number')
-                                .filter(msg=>{ if(seenNumbers.has(msg.from_number)) return false; seenNumbers.add(msg.from_number); return true; })
-                                .map(msg=>{ let typeLabel=''; switch(msg.type){ case 'missed_call_no_voicemail': typeLabel='Missed Call'; break; case 'voicemail': typeLabel='Voicemail'; break; default: typeLabel='Call'; } return { timestamp:msg.created_at||new Date().toISOString(), content:`${msg.customer_name} | ${typeLabel} | ${msg.intent} | ${msg.from_number}` }; });
+      const feedItems = messages.filter(m=>m.customer_name && m.customer_name!=='Unknown' && m.intent && m.intent!=='No intent' && m.from_number && m.from_number!=='No number')
+                                .filter(m=>{if(seenNumbers.has(m.from_number)) return false; seenNumbers.add(m.from_number); return true;})
+                                .map(m=>{
+                                  let typeLabel=''; 
+                                  switch(m.type){
+                                    case 'missed_call_no_voicemail': typeLabel='Missed Call'; break;
+                                    case 'voicemail': typeLabel='Voicemail'; break;
+                                    default: typeLabel='Call';
+                                  }
+                                  return { timestamp:m.created_at||new Date().toISOString(), content:`${m.customer_name} | ${typeLabel} | ${m.intent} | ${m.from_number}`};
+                                });
 
       const bookedItems = bookings.filter(b=>b.customer_name && b.customer_name!=='Unknown')
-                                  .map(b=>{ let scheduledTime='Not scheduled'; let timestamp=b.created_at||new Date().toISOString(); if(b.proposed_time){ const d=new Date(b.proposed_time); scheduledTime=d.toLocaleString('en-AU',{timeZone:'Australia/Sydney'}); timestamp=d.getTime(); } const number=b.from_number&&b.from_number!=='No number'?b.from_number:'No number'; return { timestamp, content:`${b.customer_name} | ${b.intent||'No intent'} | Scheduled for: ${scheduledTime} | ${number}` }; });
+                                  .map(b=>{
+                                    let scheduledTime='Not scheduled';
+                                    let timestamp=b.created_at||new Date().toISOString();
+                                    if(b.proposed_time){
+                                      const d=new Date(b.proposed_time);
+                                      scheduledTime=d.toLocaleString('en-AU',{timeZone:'Australia/Sydney'});
+                                      timestamp=d.getTime();
+                                    }
+                                    const number=b.from_number && b.from_number!=='No number'?b.from_number:'No number';
+                                    return { timestamp, content:`${b.customer_name} | ${b.intent||'No intent'} | Scheduled for: ${scheduledTime} | ${number}`};
+                                  });
 
-      feedItems.sort((a,b)=>new Date(b.timestamp)-new Date(a.timestamp));
-      bookedItems.sort((a,b)=>new Date(b.timestamp)-new Date(a.timestamp));
-
-      feedEl.innerHTML=feedItems.length?feedItems.map(item=>`<li>${item.content} <span class="time">${new Date(item.timestamp).toLocaleString()}</span></li>`).join(''):'<li>No feed items yet.</li>';
-      bookedEl.innerHTML=bookedItems.length?bookedItems.map(item=>`<li>${item.content} <span class="time">${new Date(item.timestamp).toLocaleString()}</span></li>`).join(''):'<li>No booked calls yet.</li>';
-
-    } catch(err){ feedEl.innerHTML='<li>Error loading feed.</li>'; bookedEl.innerHTML='<li>Error loading booked calls.</li>'; console.error(err); }
+      feedEl.innerHTML=feedItems.length?feedItems.map(i=>`<li>${i.content} <span class="time">${new Date(i.timestamp).toLocaleString()}</span></li>`).join(''):'<li>No feed items yet.</li>';
+      bookedEl.innerHTML=bookedItems.length?bookedItems.map(i=>`<li>${i.content} <span class="time">${new Date(i.timestamp).toLocaleString()}</span></li>`).join(''):'<li>No booked calls yet.</li>';
+    }catch(err){ feedEl.innerHTML='<li>Error loading feed.</li>'; bookedEl.innerHTML='<li>Error loading booked calls.</li>'; console.error(err);}
   }
   refreshFeed();
 
-  // === Voicemail Recording ===
+  // === Voicemail Recording & Upload ===
   let mediaRecorder, recordedChunks=[];
   const recordBtn=document.getElementById('recordBtn');
   const stopBtn=document.getElementById('stopBtn');
   const uploadBtn=document.getElementById('uploadBtn');
   const previewAudio=document.getElementById('voicemailPreview');
 
-  // fallback if elements are missing (safety)
-  function safeEl(el) { return el || { addEventListener(){}, disabled:true }; }
-
-  // ensure variables exist even if script runs before HTML loaded
   (function attachVoicemailHandlers(){
-    if(!recordBtn || !stopBtn || !uploadBtn || !previewAudio) return;
+    if(!recordBtn||!stopBtn||!uploadBtn||!previewAudio) return;
+
     recordBtn.addEventListener('click', async ()=>{
-      if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){ return alert("Your browser doesn't support audio recording."); }
+      if(!navigator.mediaDevices?.getUserMedia){ return alert("Your browser doesn't support audio recording."); }
       try{
         const stream=await navigator.mediaDevices.getUserMedia({audio:true});
         mediaRecorder=new MediaRecorder(stream);
         recordedChunks=[];
 
-        mediaRecorder.ondataavailable=e=>{ if(e.data && e.data.size>0) recordedChunks.push(e.data); };
+        mediaRecorder.ondataavailable=e=>{ if(e.data.size>0) recordedChunks.push(e.data); };
         mediaRecorder.onstop=()=>{
           const blob=new Blob(recordedChunks,{type:'audio/webm'});
           previewAudio.src=URL.createObjectURL(blob);
@@ -329,11 +303,7 @@
       }catch(err){ console.error(err); alert('Could not access microphone.'); }
     });
 
-    stopBtn.addEventListener('click', ()=>{
-      if(mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
-      recordBtn.disabled=false;
-      stopBtn.disabled=true;
-    });
+    stopBtn.addEventListener('click', ()=>{ if(mediaRecorder?.state!=='inactive') mediaRecorder.stop(); recordBtn.disabled=false; stopBtn.disabled=true; });
 
     uploadBtn.addEventListener('click', async ()=>{
       if(!recordedChunks.length) return alert("No recording to upload.");
@@ -341,35 +311,33 @@
       const formData=new FormData();
       formData.append('file',blob,'voicemail.webm');
 
+      // Auto-insert Twilio number here
+      const twilioNumber = window.twilioNumber || '+61483942405'; // replace with dynamic user number if available
+      formData.append('twilio_number', twilioNumber);
+
       try{
         const res=await fetch('/api/upload-voicemail',{method:'POST',body:formData});
         const data=await res.json();
-        if(data.url){ alert('✅ Voicemail uploaded successfully!'); } 
-        else { alert('❌ Upload failed.'); }
+        if(data.url){
+          previewAudio.src = data.url;
+          alert('✅ Voicemail uploaded successfully!');
+        }else alert('❌ Upload failed.');
       }catch(err){ console.error(err); alert('❌ Error uploading voicemail.'); }
     });
   })();
 
-  // === Reset Voicemail ===
   async function resetVoicemail(){
     try{
       const res=await fetch('/api/reset-voicemail',{method:'POST'});
-      if(res.ok){
-        previewAudio.style.display='none';
-        previewAudio.src='';
-        alert('🔄 Reset to AI default voicemail.');
-      } else {
-        alert('❌ Reset failed.');
-      }
-    } catch(err){ console.error(err); alert('❌ Error resetting voicemail.'); }
+      if(res.ok){ previewAudio.style.display='none'; previewAudio.src=''; alert('🔄 Reset to AI default voicemail.'); }
+      else alert('❌ Reset failed.');
+    }catch(err){ console.error(err); alert('❌ Error resetting voicemail.'); }
   }
 
-  // === Service Worker Registration ===
   if('serviceWorker' in navigator){
     window.addEventListener('load', ()=>{
-      navigator.serviceWorker.register('/sw.js')
-        .then(reg=>console.log('Service Worker registered:', reg))
-        .catch(err=>console.error('Service Worker registration failed:', err));
+      navigator.serviceWorker.register('/sw.js').then(reg=>console.log('Service Worker registered:',reg))
+      .catch(err=>console.error('Service Worker registration failed:',err));
     });
   }
 </script>

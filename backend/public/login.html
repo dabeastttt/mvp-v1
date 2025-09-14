@@ -3,7 +3,7 @@ app.get('/login', (req, res) => {
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>TradeAssist A.I — Login</title>
 <style>
 html, body {
@@ -14,8 +14,7 @@ html, body {
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   background: #0A0A0A;
   color: #FFFFFF;
-  overflow-x: hidden;
-  overflow-y: auto;
+  overflow: hidden;
 }
 canvas {
   position: fixed;
@@ -54,7 +53,6 @@ input[type="email"], input[type="password"] {
   background-color: #1E1E1E;
   color: #FFFFFF;
   box-shadow: 0 0 6px 2px #FF6B00;
-  transition: border-color 0.3s ease, box-shadow 0.3s ease, background-color 0.3s ease;
 }
 input:focus {
   outline: none;
@@ -74,7 +72,6 @@ button {
   cursor: pointer;
   box-shadow: 0 6px 14px #FF6B0088;
   margin-top: 1rem;
-  transition: background 0.3s ease, color 0.3s ease, box-shadow 0.3s ease;
 }
 button:hover {
   background: #FF914D;
@@ -114,37 +111,35 @@ button:hover {
 <script>
 const canvas = document.getElementById('backgroundCanvas');
 const ctx = canvas.getContext('2d');
-let width = window.innerWidth;
-let height = window.innerHeight;
-canvas.width = width;
-canvas.height = height;
+let width, height, dpr;
 
-let particleCount = width < 600 ? 60 : 120;
+function resizeCanvas() {
+  dpr = window.devicePixelRatio || 1;
+  width = window.innerWidth;
+  height = window.innerHeight;
+  canvas.width = width * dpr;
+  canvas.height = height * dpr;
+  canvas.style.width = width + 'px';
+  canvas.style.height = height + 'px';
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.scale(dpr, dpr);
+  initParticles();
+}
+
+let particleCount;
 let particles = [];
 
-function createParticles() {
+function initParticles() {
+  particleCount = width < 600 ? 40 : 100; // reduce for mobile
   particles = Array.from({length: particleCount}, () => ({
-    x: Math.random()*width,
-    y: Math.random()*height,
-    radius: 2 + Math.random()*2,
-    vx: (Math.random()-0.5)*0.6,
-    vy: (Math.random()-0.5)*0.6,
+    x: Math.random() * width,
+    y: Math.random() * height,
+    radius: 1.5 + Math.random()*1.5,
+    vx: (Math.random()-0.5)*0.5,
+    vy: (Math.random()-0.5)*0.5,
     alpha: 0.6 + Math.random()*0.4,
   }));
 }
-
-createParticles();
-
-function resizeCanvas() {
-  width = window.innerWidth;
-  height = window.innerHeight;
-  canvas.width = width;
-  canvas.height = height;
-  particleCount = width < 600 ? 60 : 120;
-  createParticles();
-}
-
-window.addEventListener('resize', resizeCanvas);
 
 function animate() {
   ctx.clearRect(0,0,width,height);
@@ -156,21 +151,17 @@ function animate() {
     ctx.beginPath();
     ctx.arc(p.x,p.y,p.radius,0,Math.PI*2);
     ctx.fillStyle = \`rgba(255,107,0,\${p.alpha})\`;
-    ctx.shadowColor = 'rgba(255,107,0,0.7)';
-    ctx.shadowBlur = 8;
     ctx.fill();
-    ctx.shadowBlur = 0;
   });
-  // connect particles
   for(let i=0;i<particles.length;i++){
     for(let j=i+1;j<particles.length;j++){
       const dx = particles[i].x - particles[j].x;
       const dy = particles[i].y - particles[j].y;
       const dist = Math.sqrt(dx*dx+dy*dy);
-      if(dist<130){
+      if(dist<110){
         ctx.beginPath();
-        ctx.strokeStyle = \`rgba(255,107,0,\${1 - dist/130})\`;
-        ctx.lineWidth = 1;
+        ctx.strokeStyle = \`rgba(255,107,0,\${1 - dist/110})\`;
+        ctx.lineWidth = 0.8;
         ctx.moveTo(particles[i].x, particles[i].y);
         ctx.lineTo(particles[j].x, particles[j].y);
         ctx.stroke();
@@ -179,9 +170,13 @@ function animate() {
   }
   requestAnimationFrame(animate);
 }
+
+window.addEventListener('resize', resizeCanvas);
+resizeCanvas();
 animate();
 </script>
 </body>
 </html>`;
   res.send(html);
 });
+

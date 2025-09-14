@@ -7,13 +7,18 @@ const twilio = require('twilio');
 const rateLimit = require('express-rate-limit');
 const fs = require('fs');
 const os = require('os');
+const { createClient } = require('@supabase/supabase-js');
+
 
 // Supabase client
-const { createClient } = require('@supabase/supabase-js');
 const supabase = createClient(
     process.env.SUPABASE_URL,
-    process.env.SUPABASE_ANON_KEY,
+    process.env.SUPABASE_SERVICE_ROLE_KEY, // <-- full access for backend
 );
+
+console.log("Supabase key starts with:", process.env.SUPABASE_SERVICE_ROLE_KEY?.substring(0, 12));
+
+
 
 // CommonJS-safe fetch
 const fetch = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args));
@@ -385,22 +390,36 @@ app.post('/voice', async (req, res) => {
   res.type('text/xml').send(response.toString());
 });
 
-//upload voicemail 
+// Upload voicemail
 app.post('/api/upload-voicemail', async (req, res) => {
   try {
-    const file = req.files.file; // if using express-fileupload
+    if (!req.files || !req.files.file) {
+      return res.status(400).json({ error: "No file uploaded" });
+    }
+
+    const file = req.files.file;
     const tradieNumber = process.env.TRADIE_PHONE_NUMBER;
 
-    // Upload to Supabase Storage
+    // Make sure bucket exists (voicemails)
+    const bucketCheck = await supabase.storage.getBucket('voicemails');
+    if (!bucketCheck.data) {
+      return res.status(500).json({ error: "Voicemail bucket not found" });
+    }
+
+    // Upload the file
     const { data: uploadData, error: uploadError } = await supabase.storage
       .from('voicemails')
-      .upload(`${tradieNumber}/${Date.now()}-${file.name}`, file.data, { contentType: file.mimetype });
+      .upload(`${tradieNumber}/${Date.now()}-${file.name}`, file.data, {
+        contentType: file.mimetype,
+        upsert: true // overwrite if file exists
+      });
 
     if (uploadError) throw uploadError;
 
+    // Build public URL
     const voicemailUrl = `${process.env.SUPABASE_URL}/storage/v1/object/public/voicemails/${uploadData.path}`;
 
-    // Update tradie record
+    // Update tradie record in database
     const { error: updateError } = await supabase
       .from('tradies')
       .update({ voicemail_url: voicemailUrl })
@@ -410,7 +429,7 @@ app.post('/api/upload-voicemail', async (req, res) => {
 
     res.json({ url: voicemailUrl });
   } catch (err) {
-    console.error(err);
+    console.error("❌ Upload voicemail error:", err.message);
     res.status(500).json({ error: err.message });
   }
 });

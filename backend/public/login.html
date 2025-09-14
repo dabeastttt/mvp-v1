@@ -15,18 +15,16 @@ app.get('/login', (req, res) => {
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
       background: #0A0A0A;
       color: #FFFFFF;
-      overflow-x: hidden;
-      overflow-y: auto;
+      overflow: hidden;
     }
     canvas {
       position: fixed;
-      top: 0; left: 0;
+      top: 0;
+      left: 0;
       width: 100%;
       height: 100%;
       z-index: 0;
-      background: #0A0A0A;
       display: block;
-      pointer-events: none;
     }
     main {
       position: relative;
@@ -46,23 +44,42 @@ app.get('/login', (req, res) => {
     .glow-icon { width: 100px; height: 100px; margin-bottom: 1rem; filter: drop-shadow(0 0 12px #FF6B00); }
     h1 { margin-bottom: 1.5rem; text-shadow: 0 0 10px #FF914Dbb; color: #FF6B00; font-weight: 900; font-size: 1.8rem; }
     input[type="email"], input[type="password"] {
-      padding: 0.75rem 1rem; border-radius: 10px; border: 2px solid #FF6B00;
-      width: 100%; margin-bottom: 1.2rem; font-size: 1rem; box-sizing: border-box;
-      background-color: #1E1E1E; color: #FFFFFF;
+      padding: 0.75rem 1rem;
+      border-radius: 10px;
+      border: 2px solid #FF6B00;
+      width: 100%;
+      margin-bottom: 1.2rem;
+      font-size: 1rem;
+      box-sizing: border-box;
+      background-color: #1E1E1E;
+      color: #FFFFFF;
       box-shadow: 0 0 6px 2px #FF6B00;
       transition: border-color 0.3s ease, box-shadow 0.3s ease, background-color 0.3s ease;
     }
-    input[type="email"]:focus, input[type="password"]:focus {
-      outline: none; border-color: #FF914D; box-shadow: 0 0 10px 3px #FF914D; background-color: #2a2a2a;
+    input:focus {
+      outline: none;
+      border-color: #FF914D;
+      box-shadow: 0 0 10px 3px #FF914D;
+      background-color: #2a2a2a;
     }
     button {
-      width: 100%; padding: 0.9rem; font-size: 1.1rem; font-weight: 700;
-      background: #FF6B00; color: #0A0A0A; border: none; border-radius: 12px;
-      cursor: pointer; box-shadow: 0 6px 14px #FF6B0088; margin-top: 1rem;
+      width: 100%;
+      padding: 0.9rem;
+      font-size: 1.1rem;
+      font-weight: 700;
+      background: #FF6B00;
+      color: #0A0A0A;
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      box-shadow: 0 6px 14px #FF6B0088;
+      margin-top: 1rem;
       transition: background 0.3s ease, color 0.3s ease, box-shadow 0.3s ease;
     }
-    button:hover, button:focus {
-      background: #FF914D; color: #FFFFFF; box-shadow: 0 8px 18px #FF6B0099; outline: none;
+    button:hover {
+      background: #FF914D;
+      color: #FFFFFF;
+      box-shadow: 0 8px 18px #FF6B0099;
     }
     @media (max-width: 600px) {
       main { margin: 2rem auto; padding: 1.2rem; }
@@ -72,9 +89,9 @@ app.get('/login', (req, res) => {
   </style>
 </head>
 <body>
- <canvas id="backgroundCanvas"></canvas>
+<canvas id="backgroundCanvas"></canvas>
 <main>
-  <svg class="glow-icon" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+  <svg class="glow-icon" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
     <defs>
       <linearGradient id="orangeBolt" x1="0%" y1="0%" x2="100%" y2="100%">
         <stop offset="0%" stop-color="#FF6B00" />
@@ -96,15 +113,17 @@ app.get('/login', (req, res) => {
 <script>
   const canvas = document.getElementById('backgroundCanvas');
   const ctx = canvas.getContext('2d');
-  let width, height;
-  function resize() {
+  let width = window.innerWidth;
+  let height = window.innerHeight;
+  canvas.width = width;
+  canvas.height = height;
+
+  window.addEventListener('resize', () => {
     width = window.innerWidth;
     height = window.innerHeight;
     canvas.width = width;
     canvas.height = height;
-  }
-  resize();
-  window.addEventListener('resize', resize);
+  });
 
   class Particle {
     constructor() {
@@ -116,35 +135,35 @@ app.get('/login', (req, res) => {
       this.alpha = 0.6 + Math.random() * 0.4;
     }
     move() {
-      this.x += this.vx; this.y += this.vy;
+      this.x += this.vx;
+      this.y += this.vy;
       if (this.x < 0 || this.x > width) this.vx *= -1;
       if (this.y < 0 || this.y > height) this.vy *= -1;
     }
     draw() {
       ctx.beginPath();
-      ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+      ctx.arc(this.x, this.y, this.radius, 0, Math.PI*2);
       ctx.fillStyle = \`rgba(255,107,0,\${this.alpha})\`;
-      ctx.shadowColor = 'rgba(255, 107, 0, 0.7)';
+      ctx.shadowColor = 'rgba(255,107,0,0.7)';
       ctx.shadowBlur = 8;
       ctx.fill();
       ctx.shadowBlur = 0;
     }
   }
 
-  const particleCount = window.innerWidth < 600 ? 60 : 120;
-  const particles = Array.from({ length: particleCount }, () => new Particle());
+  const particles = Array.from({ length: width < 600 ? 60 : 120 }, () => new Particle());
 
   function connectParticles() {
     for (let i = 0; i < particles.length; i++) {
       for (let j = i + 1; j < particles.length; j++) {
         const dx = particles[i].x - particles[j].x;
         const dy = particles[i].y - particles[j].y;
-        const dist = Math.sqrt(dx * dx + dy * dy);
+        const dist = Math.sqrt(dx*dx + dy*dy);
         if (dist < 130) {
           ctx.beginPath();
           ctx.strokeStyle = \`rgba(255,107,0,\${1 - dist / 130})\`;
           ctx.lineWidth = 1;
-          ctx.shadowColor = 'rgba(255, 107, 0, 0.5)';
+          ctx.shadowColor = 'rgba(255,107,0,0.5)';
           ctx.shadowBlur = 6;
           ctx.moveTo(particles[i].x, particles[i].y);
           ctx.lineTo(particles[j].x, particles[j].y);
@@ -161,6 +180,7 @@ app.get('/login', (req, res) => {
     connectParticles();
     requestAnimationFrame(animate);
   }
+
   animate();
 </script>
 </body>

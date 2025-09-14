@@ -21,31 +21,26 @@
     html, body {
       margin: 0;
       padding: 0;
+      width: 100%;
       min-height: 100%;
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
       background: #0A0A0A;
       color: #FFFFFF;
       overflow-x: hidden;
+      overflow-y: auto;
+      position: relative;
     }
 
-    /* Background canvas (fixed, won’t scroll with content) */
     canvas {
       position: fixed;
-      top: 0; left: 0;
-      width: 100%; height: 100%;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
       z-index: 0;
-      background: #0A0A0A;
       display: block;
       pointer-events: none;
-    }
-
-    /* Center content wrapper */
-    body {
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      min-height: 100vh;
-      flex-direction: column;
+      background: #0A0A0A;
     }
 
     main {
@@ -53,9 +48,9 @@
       z-index: 10;
       max-width: 360px;
       width: 90%;
-      margin: 2rem auto;
+      margin: 4rem auto;
       padding: 1.5rem;
-      background: rgba(30, 30, 30, 0.15);
+      background: rgba(30,30,30,0.15);
       border-radius: 16px;
       box-shadow: 0 0 20px #FF914D66;
       backdrop-filter: blur(2.5px);
@@ -73,21 +68,8 @@
       50% { filter: drop-shadow(0 0 14px #FF914DCC); }
     }
 
-    h1 {
-      font-weight: 900;
-      font-size: 2rem;
-      margin: 0 0 0.5rem;
-      text-align: center;
-      color: #FF6B00;
-      text-shadow: 0 0 8px #FF914D88;
-    }
-    h2 {
-      font-weight: 400;
-      font-size: 1.05rem;
-      margin: 0 0 1.5rem;
-      text-align: center;
-      color: #FF914D;
-    }
+    h1 { font-weight: 900; font-size: 2rem; margin: 0 0 0.5rem; text-align: center; color: #FF6B00; text-shadow: 0 0 8px #FF914D88; }
+    h2 { font-weight: 400; font-size: 1.05rem; margin: 0 0 1.5rem; text-align: center; color: #FF914D; }
 
     label { display: block; margin-bottom: 0.4rem; font-weight: 600; color: #FF914D; }
     input, select {
@@ -145,7 +127,7 @@
       top: 0; left: 0;
       z-index: 9999;
       width: 100%; height: 100%;
-      background-color: rgba(10, 10, 10, 0.95);
+      background-color: rgba(10,10,10,0.95);
       color: #FF6B00;
       font-size: 1.5rem;
       text-align: center;
@@ -153,7 +135,7 @@
     }
 
     @media (max-width: 480px) {
-      main { margin: 1rem; padding: 1.2rem; }
+      main { margin: 2rem auto; padding: 1.2rem; }
       .glow-icon { width: 80px; height: 80px; }
       h1 { font-size: 1.6rem; }
       h2 { font-size: 0.95rem; }
@@ -162,153 +144,157 @@
   </style>
 </head>
 <body>
-<canvas id="backgroundCanvas"></canvas>
+  <canvas id="backgroundCanvas"></canvas>
 
-<main>
-  <svg class="glow-icon" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
-    <defs>
-      <linearGradient id="orangeBolt" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stop-color="#FF6B00" />
-        <stop offset="100%" stop-color="#FF914D" />
-      </linearGradient>
-    </defs>
-    <path d="M32 8c-11 0-20 9-20 20v4c0 2.2 1.8 4 4 4h32c2.2 0 4-1.8 4-4v-4c0-11-9-20-20-20z"
-          fill="url(#orangeBolt)" stroke="#FFFFFF" stroke-width="2"/>
-    <path d="M20 36v-4c0-6.6 5.4-12 12-12s12 5.4 12 12v4"
-          fill="none" stroke="#FFFFFF" stroke-width="2"/>
-  </svg>
-  <h1>TradeAssist A.I</h1>
-  <h2>NEVER MISS A JOB AGAIN.</h2>
+  <main>
+    <svg class="glow-icon" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="orangeBolt" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="#FF6B00" />
+          <stop offset="100%" stop-color="#FF914D" />
+        </linearGradient>
+      </defs>
+      <path d="M32 8c-11 0-20 9-20 20v4c0 2.2 1.8 4 4 4h32c2.2 0 4-1.8 4-4v-4c0-11-9-20-20-20z"
+            fill="url(#orangeBolt)" stroke="#FFFFFF" stroke-width="2"/>
+      <path d="M20 36v-4c0-6.6 5.4-12 12-12s12 5.4 12 12v4"
+            fill="none" stroke="#FFFFFF" stroke-width="2"/>
+    </svg>
 
-  <form id="signupForm" autocomplete="off" novalidate>
-    <label for="name">Full Name</label>
-    <input type="text" id="name" name="name" placeholder="Name" required />
-    <label for="business">Business Name</label>
-    <input type="text" id="business" name="business" placeholder="Business Name" required />
-    <label for="email">Email Address</label>
-    <input type="email" id="email" name="email" placeholder="Email@example.com" required />
-    <label for="phone">Mobile Number</label>
-    <input type="tel" id="phone" name="phone" placeholder="0400 000 000" pattern="[0-9\\s\\-+]+" required />
-    <label for="planSelect">Select Subscription Plan:</label>
-    <select id="planSelect" name="planSelect" required>
-      <option value="weekly">Weekly - $7 / week (first week free)</option>
-      <option value="monthly">Monthly - $30 / month (first 7 days free)</option>
-    </select>
-    <button type="submit">ONBOARD YOUR 24/7 Receptionist</button>
-  </form>
+    <h1>TradeAssist A.I</h1>
+    <h2>NEVER MISS A JOB AGAIN.</h2>
 
-  <button id="loginButton" type="button">Login to Dashboard</button>
-</main>
+    <form id="signupForm" autocomplete="off" novalidate>
+      <label for="name">Full Name</label>
+      <input type="text" id="name" name="name" placeholder="Name" required />
+      <label for="business">Business Name</label>
+      <input type="text" id="business" name="business" placeholder="Business Name" required />
+      <label for="email">Email Address</label>
+      <input type="email" id="email" name="email" placeholder="Email@example.com" required />
+      <label for="phone">Mobile Number</label>
+      <input type="tel" id="phone" name="phone" placeholder="0400 000 000" pattern="[0-9\\s\\-+]+" required />
+      <label for="planSelect">Select Subscription Plan:</label>
+      <select id="planSelect" name="planSelect" required>
+        <option value="weekly">Weekly - $7 / week (first week free)</option>
+        <option value="monthly">Monthly - $30 / month (first 7 days free)</option>
+      </select>
+      <button type="submit">ONBOARD YOUR 24/7 Receptionist</button>
+    </form>
 
-<div id="loadingScreen">Onboarding your AI Receptionist...</div>
+    <button id="loginButton" type="button">Login to Dashboard</button>
+  </main>
 
-<!-- Background Particles -->
-<script>
-  const canvas = document.getElementById('backgroundCanvas');
-  const ctx = canvas.getContext('2d');
-  let width, height;
-  function resize() {
-    width = window.innerWidth;
-    height = window.innerHeight;
-    canvas.width = width;
-    canvas.height = height;
-  }
-  resize();
-  window.addEventListener('resize', resize);
+  <div id="loadingScreen">Onboarding your AI Receptionist...</div>
 
-  class Particle {
-    constructor() {
-      this.x = Math.random() * width;
-      this.y = Math.random() * height;
-      this.radius = 1.5 + Math.random() * 1.5;
-      this.vx = (Math.random() - 0.5) * 0.5;
-      this.vy = (Math.random() - 0.5) * 0.5;
-      this.alpha = 0.5 + Math.random() * 0.5;
+  <!-- Background Particles -->
+  <script>
+    const canvas = document.getElementById('backgroundCanvas');
+    const ctx = canvas.getContext('2d');
+    let width, height;
+    function resize() {
+      width = window.innerWidth;
+      height = window.innerHeight;
+      canvas.width = width;
+      canvas.height = height;
     }
-    move() {
-      this.x += this.vx; this.y += this.vy;
-      if (this.x < 0 || this.x > width) this.vx *= -1;
-      if (this.y < 0 || this.y > height) this.vy *= -1;
+    resize();
+    window.addEventListener('resize', resize);
+
+    class Particle {
+      constructor() {
+        this.x = Math.random() * width;
+        this.y = Math.random() * height;
+        this.radius = 1.5 + Math.random() * 1.5;
+        this.vx = (Math.random() - 0.5) * 0.5;
+        this.vy = (Math.random() - 0.5) * 0.5;
+        this.alpha = 0.5 + Math.random() * 0.5;
+      }
+      move() {
+        this.x += this.vx; this.y += this.vy;
+        if (this.x < 0 || this.x > width) this.vx *= -1;
+        if (this.y < 0 || this.y > height) this.vy *= -1;
+      }
+      draw() {
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.radius, 0, Math.PI*2);
+        ctx.fillStyle = `rgba(255,107,0,${this.alpha})`;
+        ctx.fill();
+      }
     }
-    draw() {
-      ctx.beginPath();
-      ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-      ctx.fillStyle = `rgba(255,107,0,${this.alpha})`;
-      ctx.fill();
-    }
-  }
-  const particleCount = window.innerWidth < 600 ? 40 : 80;
-  const particles = Array.from({ length: particleCount }, () => new Particle());
-  function connectParticles() {
-    for (let i = 0; i < particles.length; i++) {
-      for (let j = i + 1; j < particles.length; j++) {
-        const dx = particles[i].x - particles[j].x;
-        const dy = particles[i].y - particles[j].y;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-        if (dist < 100) {
-          ctx.beginPath();
-          ctx.strokeStyle = `rgba(255,107,0,${1 - dist / 100})`;
-          ctx.lineWidth = 0.7;
-          ctx.moveTo(particles[i].x, particles[i].y);
-          ctx.lineTo(particles[j].x, particles[j].y);
-          ctx.stroke();
+
+    const particleCount = window.innerWidth < 600 ? 30 : 80;
+    const particles = Array.from({length: particleCount}, () => new Particle());
+
+    function connectParticles() {
+      for (let i=0; i<particles.length; i++) {
+        for (let j=i+1; j<particles.length; j++) {
+          const dx = particles[i].x - particles[j].x;
+          const dy = particles[i].y - particles[j].y;
+          const dist = Math.sqrt(dx*dx + dy*dy);
+          if (dist < 100) {
+            ctx.beginPath();
+            ctx.strokeStyle = `rgba(255,107,0,${1 - dist/100})`;
+            ctx.lineWidth = 0.7;
+            ctx.moveTo(particles[i].x, particles[i].y);
+            ctx.lineTo(particles[j].x, particles[j].y);
+            ctx.stroke();
+          }
         }
       }
     }
-  }
-  function animate() {
-    ctx.clearRect(0, 0, width, height);
-    particles.forEach(p => { p.move(); p.draw(); });
-    connectParticles();
-    requestAnimationFrame(animate);
-  }
-  animate();
-</script>
 
-<!-- Form Handling -->
-<script>
-  const form = document.getElementById('signupForm');
-  const loadingScreen = document.getElementById('loadingScreen');
-  const button = form.querySelector('button');
-
-  form.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    if (!form.checkValidity()) {
-      form.reportValidity();
-      return;
+    function animate() {
+      ctx.clearRect(0,0,width,height);
+      particles.forEach(p => { p.move(); p.draw(); });
+      connectParticles();
+      requestAnimationFrame(animate);
     }
-    loadingScreen.style.display = 'block';
-    button.disabled = true;
+    animate();
+  </script>
 
-    const formData = {
-      name: document.getElementById('name').value.trim(),
-      business: document.getElementById('business').value.trim(),
-      email: document.getElementById('email').value.trim(),
-      phoneRaw: document.getElementById('phone').value.trim(),
-      planSelect: document.getElementById('planSelect').value
-    };
+  <!-- Form Handling -->
+  <script>
+    const form = document.getElementById('signupForm');
+    const loadingScreen = document.getElementById('loadingScreen');
+    const button = form.querySelector('button');
 
-    try {
-      const res = await fetch('/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData)
-      });
-      if (res.ok) {
-        window.location.href = '/success';
-      } else {
-        throw new Error('Registration failed');
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      if (!form.checkValidity()) {
+        form.reportValidity();
+        return;
       }
-    } catch (err) {
-      alert("Registration error. Please try again.");
-      loadingScreen.style.display = 'none';
-      button.disabled = false;
-    }
-  });
+      loadingScreen.style.display = 'block';
+      button.disabled = true;
 
-  document.getElementById('loginButton').addEventListener('click', () => {
-    window.location.href = '/login';
-  });
-</script>
+      const formData = {
+        name: document.getElementById('name').value.trim(),
+        business: document.getElementById('business').value.trim(),
+        email: document.getElementById('email').value.trim(),
+        phoneRaw: document.getElementById('phone').value.trim(),
+        planSelect: document.getElementById('planSelect').value
+      };
+
+      try {
+        const res = await fetch('/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(formData)
+        });
+        if (res.ok) {
+          window.location.href = '/success';
+        } else {
+          throw new Error('Registration failed');
+        }
+      } catch (err) {
+        alert("Registration error. Please try again.");
+        loadingScreen.style.display = 'none';
+        button.disabled = false;
+      }
+    });
+
+    document.getElementById('loginButton').addEventListener('click', () => {
+      window.location.href = '/login';
+    });
+  </script>
 </body>
 </html>
